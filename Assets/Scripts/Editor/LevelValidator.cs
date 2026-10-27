@@ -137,7 +137,7 @@ public static class LevelValidator
         public Vector3 Uphill { get { var u = new Vector3(-n.x, 0f, -n.z); return u.sqrMagnitude > 1e-4f ? u.normalized : Vector3.zero; } }
     }
     public class Wall { public string name; public Vector3 c, n, u; public float halfLen, bottom, top; public bool kick; }
-    public class Ceil { public float minX, maxX, minZ, maxZ, y; }
+    public class Ceil { public Collider col; public float minX, maxX, minZ, maxZ; public Vector3 c, n; public float YAt(float x, float z) => c.y - (n.x * (x - c.x) + n.z * (z - c.z)) / Mathf.Min(-0.2f, n.y); }
 
     public class Geometry
     {
@@ -185,7 +185,7 @@ public static class LevelValidator
                         }
                         else if (nf.y <= -0.7f)
                         {
-                            var cl = new Ceil { y = fc.y };
+                            var cl = new Ceil { col = col, c = fc, n = nf };
                             Footprint(fc, e1, e2, out cl.minX, out cl.maxX, out cl.minZ, out cl.maxZ);
                             g.ceils.Add(cl);
                         }
@@ -201,7 +201,23 @@ public static class LevelValidator
                         }
                     }
             }
+        // a top with a solid underside within a metre of it is not a floor (a plinth under a deck, a slab's own belly)
+        g.plats.RemoveAll(p => Covered(g, p));
+        for (int i = 0; i < g.plats.Count; i++) g.plats[i].id = i;
         return g;
+    }
+
+    static bool Covered(Geometry g, Plat p)
+    {
+        var at = p.Centre;
+        foreach (var c in g.ceils)
+        {
+            if (c.col == p.col) continue;
+            if (at.x < c.minX || at.x > c.maxX || at.z < c.minZ || at.z > c.maxZ) continue;
+            float h = c.YAt(at.x, at.z) - at.y;
+            if (h > -0.02f && h < 1.0f) return true;   // a slab sitting on it (h = 0) covers it as surely as one a hair above
+        }
+        return false;
     }
 
     static void Footprint(Vector3 c, Vector3 e1, Vector3 e2, out float minX, out float maxX, out float minZ, out float maxZ)
@@ -356,7 +372,7 @@ public static class LevelValidator
 
     // ---------------------------------------------------------------- the main line
 
-    public class Segment { public string name; public Vector3 from, to; public int start = -1, end = -1; public List<Edge> path = new List<Edge>(); public bool broken; public float gate; public Edge gateEdge; public List<int> reached; public string deadEnd; public Vector3 deadAt; }
+    public class Segment { public string name; public Vector3 from, to; public int start = -1, end = -1; public List<Edge> path = new List<Edge>(); public List<Vector3> entries = new List<Vector3>(); public bool broken; public float gate; public Edge gateEdge; public List<int> reached; public string deadEnd; public Vector3 deadAt; }
 
     static int PlatUnder(Geometry g, Vector3 p)
     {
@@ -477,6 +493,10 @@ public static class LevelValidator
                 if (built.layout.finishPortal.sqrMagnitude > 1e-3f) way.Add(("THE FINISH", built.layout.finishPortal));
                 res.checkpoints = built.layout.checkpoints.Count;
             }
+            if (way.Count == 1)
+                res.findings.Add(new Finding { severity = 0, title = "NO WAYPOINTS TO WALK", segment = "the whole level", at = built.spawn,
+                    experience = "This level names no checkpoints and no finish, so the validator has no line to follow; only the geometry was read.",
+                    where = "The whole level.", why = "The main line runs from the spawn through the course's checkpoints to the finish; without them there is nothing to walk." });
             for (int i = 0; i + 1 < way.Count; i++)
             {
                 if (Flat(way[i].at, way[i + 1].at) < 2f && Mathf.Abs(way[i].at.y - way[i + 1].at.y) < 2f) continue;
@@ -491,23 +511,37 @@ public static class LevelValidator
                     res.findings.Add(new Finding { severity = 100, title = "THE LINE BREAKS", segment = seg.name, at = seg.deadAt,
                         experience = "The player runs out of floor: from here nothing ahead can be reached with any move the game has, so the level cannot be finished this way.",
                         where = "Segment " + seg.name + ", " + seg.deadEnd + ".",
-                        why = "The gap or rise between the last floor reached and the next is beyond the longest arc in the metrics (a double jump at 24 m/s), and no wall runs beside it." });
+                        why = "The gap or rise between the last floor reached and the next is beyond the longest arc in the metrics (a double jump at 24 m/s), and no wall runs beside it."
+                            + (kind == LevelKind.Level5 || kind == LevelKind.Level10 ? " On this level the chase after the gates is generated in play, so the validator cannot see it; this break is most likely that." : "") });
                     continue;
                 }
                 Edge prevE = null;
+                Vector3 entry = seg.from;   // where the line entered the floor it stands on
+                entry.y = g.plats[seg.start].YAt(entry.x, entry.z);
                 foreach (var e in seg.path)
                 {
                     var P = g.plats[e.from]; var Q = g.plats[e.to];
-                    float segLen = Flat(e.a, e.b);
+                    seg.entries.Add(entry);
+                    float traverse = Flat(entry, e.a);          // the run across P from where the line came in to where it leaves
+                    float segLen = traverse + Flat(e.a, e.b);
                     res.routeLength += segLen;
-                    Vector3 dir = e.b - e.a; dir.y = 0f; dir = dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector3.forward;
+                    Vector3 dir = e.b - entry; dir.y = 0f; dir = dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector3.forward;
                     switch (e.move)
                     {
-                        case Move.Jump: res.jumps++; res.longestGap = Mathf.Max(res.longestGap, e.gap); break;
-                        case Move.DoubleJump: res.jumps++; res.longestGap = Mathf.Max(res.longestGap, e.gap); break;
-                        case Move.WallRun: res.jumps++; res.longestGap = Mathf.Max(res.longestGap, e.gap); break;
-                        case Move.Drop: res.drops++; break;
+                        case Move.Jump: res.jumps++; res.longestGap = Mathf.Max(res.longestGap, e.gap); res.flatMetres += traverse; break;
+                        case Move.DoubleJump: res.jumps++; res.longestGap = Mathf.Max(res.longestGap, e.gap); res.flatMetres += traverse; break;
+                        case Move.WallRun: res.jumps++; res.longestGap = Mathf.Max(res.longestGap, e.gap); res.flatMetres += traverse; break;
+                        case Move.Drop: res.drops++; res.flatMetres += traverse; break;
                         case Move.Walk: res.flatMetres += segLen; break;
+                    }
+                    // a kerb across the run on this floor: a solid top a little higher, touching, inside the corridor
+                    foreach (var R in Kerbs(g, P, entry, e.a))
+                    {
+                        if (R == Q) continue;   // the path's own step is reported below
+                        res.findings.Add(new Finding { severity = 50, title = "A STEP THAT SNAGS", segment = seg.name, at = R.Centre,
+                            experience = "A kerb " + (R.YAt(R.Centre.x, R.Centre.z) - P.YAt(R.Centre.x, R.Centre.z)).ToString("0.00", Ci) + " m tall stands across the run; at speed the player hits it and stops dead, since the motor has no step-up.",
+                            where = "Segment " + seg.name + ": '" + R.name + "' on '" + P.name + "' at " + Fmt(R.Centre) + ".",
+                            why = R.lip ? "A lip or plinth piece on the floor of the line. A bevel or a ramp would carry the run." : "Two solid tops meet with a small rise between them." });
                     }
                     // the gate: the hardest move of the line
                     if (e == seg.gateEdge && e.cost >= 14f)
@@ -553,15 +587,18 @@ public static class LevelValidator
                                 why = "Running never gains or keeps speed above 8 m/s on the ground, and a slide fights gravity's share along the slope (" + LevelMetricsMath.SlideSlopeGain(reach.v, Q.slope).ToString("0.0", Ci) + " m/s² against it)." });
                         }
                     }
-                    float clear = Clearance(g, Q, e.b);
+                    float clearP = ClearanceAlong(g, P, entry, e.a, out Vector3 lowAt), clearQ = Clearance(g, Q, e.b);
+                    float clear = Mathf.Min(clearP, clearQ);
+                    Vector3 clearAt = clearP <= clearQ ? lowAt : e.b;
+                    string clearOver = clearP <= clearQ ? P.name : Q.name;
                     if (clear < 1.0f)
-                        res.findings.Add(new Finding { severity = 80, title = "A CEILING TOO LOW EVEN TO SLIDE", segment = seg.name, at = e.b,
+                        res.findings.Add(new Finding { severity = 80, title = "A CEILING TOO LOW EVEN TO SLIDE", segment = seg.name, at = clearAt,
                             experience = "Headroom of " + clear.ToString("0.00", Ci) + " m: a run stops here and a slide (0.9 m) scrapes or stops. The line is blocked unless there is another way round.",
-                            where = "Segment " + seg.name + ": over '" + Q.name + "' at " + Fmt(e.b) + ".", why = "A solid underside sits within a metre of the floor." });
+                            where = "Segment " + seg.name + ": over '" + clearOver + "' at " + Fmt(clearAt) + ".", why = "A solid underside sits within a metre of the floor." });
                     else if (clear < 1.95f)
-                        res.findings.Add(new Finding { severity = 15, title = "A FORCED SLIDE", segment = seg.name, at = e.b,
+                        res.findings.Add(new Finding { severity = 15, title = "A FORCED SLIDE", segment = seg.name, at = clearAt,
                             experience = "Headroom of " + clear.ToString("0.00", Ci) + " m: the only way through is a slide, and a hop into it is a stop. Fine as a beat; a problem if it comes without warning at speed.",
-                            where = "Segment " + seg.name + ": over '" + Q.name + "' at " + Fmt(e.b) + ".", why = "A beam or underside between 1.0 and 1.9 m over the floor." });
+                            where = "Segment " + seg.name + ": over '" + clearOver + "' at " + Fmt(clearAt) + ".", why = "A beam or underside between 1.0 and 1.9 m over the floor." });
                     // the turn: a dead stop against a wall
                     if (prevE != null)
                     {
@@ -576,6 +613,7 @@ public static class LevelValidator
                         }
                     }
                     prevE = e;
+                    entry = e.b;
                 }
             }
             // wall running along the line
@@ -603,11 +641,49 @@ public static class LevelValidator
         float floor = Q.YAt(at.x, at.z), best = float.MaxValue;
         foreach (var c in g.ceils)
         {
+            if (c.col == Q.col) continue;
+            if (c.maxX - c.minX < 3f && c.maxZ - c.minZ < 3f) continue;   // a desk, a crate, a column: a thing to run round, not a ceiling
             if (at.x < c.minX - 0.3f || at.x > c.maxX + 0.3f || at.z < c.minZ - 0.3f || at.z > c.maxZ + 0.3f) continue;
-            float h = c.y - floor;
+            float h = c.YAt(at.x, at.z) - floor;
             if (h > 0.2f && h < best) best = h;
         }
         return best;
+    }
+
+    /// The least headroom along a run across P from `from` to `to`, sampled every metre, and where it was
+    static float ClearanceAlong(Geometry g, Plat P, Vector3 from, Vector3 to, out Vector3 lowAt)
+    {
+        float best = float.MaxValue; lowAt = to;
+        int n = Mathf.Max(1, Mathf.CeilToInt(Flat(from, to)));
+        for (int i = 0; i <= n; i++)
+        {
+            Vector3 p = Vector3.Lerp(from, to, (float)i / n);
+            float c = Clearance(g, P, p);
+            if (c < best) { best = c; lowAt = p; lowAt.y = P.YAt(p.x, p.z); }
+        }
+        return best;
+    }
+
+    /// Kerbs across a run on P: solid tops touching P, a little higher (a kerb, not a ledge), inside the run's corridor
+    static IEnumerable<Plat> Kerbs(Geometry g, Plat P, Vector3 from, Vector3 to)
+    {
+        float len = Flat(from, to);
+        if (len < 1f) yield break;
+        Vector3 d = to - from; d.y = 0f; d /= Mathf.Max(0.01f, d.magnitude);
+        Vector3 side = new Vector3(-d.z, 0f, d.x);
+        foreach (var R in g.plats)
+        {
+            if (R == P || R.pad) continue;
+            if (RectGap(P, R, out _, out _) > Touch) continue;
+            float rise = R.YAt(R.Centre.x, R.Centre.z) - P.YAt(R.Centre.x, R.Centre.z);
+            if (rise < StepMin || rise > 1.0f) continue;
+            Vector3 rc = R.Centre; rc.y = 0f;
+            Vector3 f0 = from; f0.y = 0f;
+            float along = Vector3.Dot(rc - f0, d);
+            if (along < -1f || along > len + 1f) continue;
+            if (Mathf.Abs(Vector3.Dot(rc - f0, side)) > 1.5f + Mathf.Max(R.Width, R.Depth) * 0.5f) continue;
+            yield return R;
+        }
     }
 
     static bool WallAhead(Geometry g, Vector3 at, Vector3 dir, float floorY)
@@ -628,19 +704,23 @@ public static class LevelValidator
     {
         float total = 0f;
         foreach (var seg in segments)
-            foreach (var e in seg.path)
+            for (int i = 0; i < seg.path.Count; i++)
             {
-                Vector3 d = e.b - e.a; d.y = 0f;
+                var e = seg.path[i];
+                Vector3 from = i < seg.entries.Count ? seg.entries[i] : e.a, to = e.b;
+                Vector3 d = to - from; d.y = 0f;
                 float len = d.magnitude;
                 if (len < 2f) continue;
                 d /= len;
-                float floor = e.a.y;
+                float floor = from.y;
+                var P = g.plats[e.from];
+                float reach = 2.5f + Mathf.Max(P.Width, P.Depth) * 0.5f;   // a wall along the floor's own side is within an angle
                 foreach (var w in g.walls)
                 {
                     if (Mathf.Abs(Vector3.Dot(w.u, d)) < 0.9f) continue;
-                    float lateral = Mathf.Abs(Vector3.Dot((e.a + e.b) * 0.5f - w.c, w.n));
-                    if (lateral > 2.5f) continue;
-                    float a0 = Vector3.Dot(e.a - w.c, w.u), a1 = Vector3.Dot(e.b - w.c, w.u);
+                    float lateral = Mathf.Abs(Vector3.Dot((from + to) * 0.5f - w.c, w.n));
+                    if (lateral > reach) continue;
+                    float a0 = Vector3.Dot(from - w.c, w.u), a1 = Vector3.Dot(to - w.c, w.u);
                     float overlap = Mathf.Min(Mathf.Max(a0, a1), w.halfLen) - Mathf.Max(Mathf.Min(a0, a1), -w.halfLen);
                     if (overlap < 3f || w.bottom > floor + 0.8f || w.top < floor + 1.6f) continue;
                     total += overlap;
@@ -686,11 +766,14 @@ public static class LevelValidator
             sb.AppendLine("**" + seg.name + "**" + (seg.broken ? " — BROKEN: " + seg.deadEnd : " — hardest move " + seg.gate.ToString("0.0", Ci)));
             if (seg.broken) { sb.AppendLine(); continue; }
             var line = new StringBuilder();
-            foreach (var e in seg.path)
+            for (int i = 0; i < seg.path.Count; i++)
             {
+                var e = seg.path[i];
+                float run = i < seg.entries.Count ? Flat(seg.entries[i], e.a) : 0f;
+                if (e.move != Move.Walk && run >= 1f) line.Append(line.Length > 0 ? " → " : "").Append("run " + run.ToString("0", Ci) + " m");
                 string m = e.move switch
                 {
-                    Move.Walk => "walk " + Flat(e.a, e.b).ToString("0", Ci) + " m",
+                    Move.Walk => "run " + (run + Flat(e.a, e.b)).ToString("0", Ci) + " m",
                     Move.Drop => "drop " + (-e.dy).ToString("0.0", Ci) + " m",
                     Move.Step => "STEP up " + e.dy.ToString("0.00", Ci) + " m",
                     Move.Jump => "jump " + e.gap.ToString("0.0", Ci) + " m " + UpDown(e.dy) + " (" + e.speed.ToString("0", Ci) + " m/s)",
@@ -734,7 +817,12 @@ public static class LevelValidator
         foreach (var seg in (List<Segment>)segmentsObj)
         {
             var moves = new List<(Vector3, Vector3, string)>();
-            foreach (var e in seg.path) moves.Add((e.a, e.b, e.move.ToString()));
+            for (int i = 0; i < seg.path.Count; i++)
+            {
+                var e = seg.path[i];
+                if (i < seg.entries.Count) moves.Add((seg.entries[i], e.a, "Walk"));
+                moves.Add((e.a, e.b, e.move.ToString()));
+            }
             yield return (seg.name, seg.broken, seg.from, seg.to, seg.deadAt, moves);
         }
     }

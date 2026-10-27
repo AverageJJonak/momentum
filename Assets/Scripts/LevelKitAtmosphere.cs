@@ -22,9 +22,12 @@ public static partial class LevelKit
     static Material Particle(Color c, bool additive)
     {
         // The keyword set comes from the template, so the build keeps the variant this asks for (see LevelKit.FromTemplate)
+        // THE GAME'S OWN PARTICLE SHADER FIRST (2026-10-27): the stock Particles/Unlit draws magenta on some machines (the
+        // pink hunter named it); Momentum/Particle keeps the per-particle colour and fade and takes the same properties
+        var own = Shader.Find("Momentum/Particle");
         var t = Template("ParticlesTransparent") ?? Template("UnlitTransparent");
-        var m = t != null
-            ? new Material(t)
+        var m = own != null && own.isSupported ? new Material(own) { name = "Particle" }
+            : t != null ? new Material(t)
             : new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Universal Render Pipeline/Unlit"));
         m.SetColor("_BaseColor", c);
         m.SetTexture("_BaseMap", MenuArt.Glow(32));
