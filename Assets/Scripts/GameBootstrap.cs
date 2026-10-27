@@ -227,6 +227,7 @@ public class GameBootstrap : MonoBehaviour
         tricks.style = styleSystem;
         tricks.body = bodyCam;
 
+        gameObject.AddComponent<RunRecorder>();   // THE RUN RECORDER (Phase 2, 2026-10-27): every frame to Docs/Runs/<level>-<date>.csv, F9/F10/F11 the markers
         var hud = gameObject.AddComponent<DebugHUD>();
         hud.motor = motor;
         hud.stamina = stamina;
