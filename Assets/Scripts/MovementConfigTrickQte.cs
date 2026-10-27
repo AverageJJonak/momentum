@@ -23,7 +23,7 @@ public partial class MovementConfig
     [Tooltip("Pips refunded on a hit")]
     public int trickPips = 1;
     [Tooltip("How much of the horizontal speed a missed window keeps (the stumble in the air)")]
-    public float trickFailKeep = 0.6f;   // 0.35 until 2026-10-27 (the user: "recovery options so a mistimed jump does not instantly kill momentum")
+    public float trickFailKeep = 0.35f;
     [Tooltip("Style points docked on a missed window")]
     public float trickFailStyleLoss = 40f;
 
