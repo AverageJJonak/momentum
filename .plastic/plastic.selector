@@ -1,4 +1,0 @@
-repository "MovementShooter/MovementShooter@20066947229693@cloud"
-  path "/"
-    br "/main"
-    co "/main"

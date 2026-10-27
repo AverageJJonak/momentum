@@ -107,6 +107,7 @@ public class GameBootstrap : MonoBehaviour
             // The menu scene builds no gameplay — MainMenuUI owns everything
             Time.timeScale = 1f;
             gameObject.AddComponent<LookInspector>();   // the census (F6) and F7 on the menu's city too
+            gameObject.AddComponent<PinkHunter>();   // THE PINK HUNTER (2026-10-27): in play, what draws magenta is put on a stand-in shader and named
             var menu = gameObject.AddComponent<MainMenuUI>();
             menu.config = config;
             return;
@@ -137,6 +138,7 @@ public class GameBootstrap : MonoBehaviour
         MaterialNet.Run();   // nothing pink: every renderer in the scene (the city and the sky included); a material on a shader Unity cannot use, or an empty slot, draws lit, and the console says which
         LookInspector.SpawnReport(spawnPosition);   // what stands under the spawn, in the console
         gameObject.AddComponent<LookInspector>();   // F7 in play: what the crosshair is on (object, material, shader), on screen and in the console
+        gameObject.AddComponent<PinkHunter>();   // THE PINK HUNTER (2026-10-27): in play, what draws magenta is put on a stand-in shader and named
 
         // Player: kinematic capsule on Ignore Raycast so the motor's scene queries skip it
         var player = new GameObject("Player") { layer = 2 };

@@ -58,3 +58,6 @@ desktop.ini
 /Tools/MenuPreview/*.exe
 /Tools/**/bin/
 /Tools/**/obj/
+
+# Unity Version Control workspace (a cloud org id and a 500 KB tree cache; nothing the repo needs)
+/.plastic/
