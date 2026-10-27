@@ -23,10 +23,12 @@ public class PinkHunter : MonoBehaviour
     const float MinPinkPct = 0.03f;     // less than this of the frame is noise
     const int MaxSamples = 160;         // pink pixels traced per read
     const string PrefsKey = "PinkHunter.Culprits";
+    const string ShadersKey = "PinkHunter.Shaders";   // shaders whose plain variant failed: every material on them is swapped at once
 
     class Trial { public Material m; public Shader was; public int queue; public string key; public float share; public int attempt; public int rounds; }
 
     static HashSet<string> known;       // shader + keyword sets confirmed broken on this machine, across sessions
+    static HashSet<string> knownShaders;   // shaders confirmed broken with no keywords at all: broken whatever the keywords
     readonly Dictionary<Material, int> attempts = new Dictionary<Material, int>();   // per material: stand-ins tried (−1 = confirmed culprit)
     readonly Dictionary<Material, float> weight = new Dictionary<Material, float>();
     readonly List<(float d, Renderer r)> near = new List<(float, Renderer)>();
@@ -47,13 +49,27 @@ public class PinkHunter : MonoBehaviour
         }
     }
 
+    static HashSet<string> KnownShaders
+    {
+        get
+        {
+            if (knownShaders != null) return knownShaders;
+            knownShaders = new HashSet<string>();
+            foreach (string k in PlayerPrefs.GetString(ShadersKey, "").Split('\n')) if (!string.IsNullOrWhiteSpace(k)) knownShaders.Add(k);
+            return knownShaders;
+        }
+    }
+
     /// The way a material is drawn: its shader, its keywords, its queue — what a verdict is about
     public static string KeyOf(Material m) => m.shader != null ? m.shader.name + " [" + string.Join(" ", m.shaderKeywords) + "] q" + m.renderQueue : "no shader";
+
+    /// Known broken: this exact way, or any way on a shader whose plain variant already failed here
+    static bool IsKnown(Material m) => m.shader != null && (Known.Contains(KeyOf(m)) || KnownShaders.Contains(m.shader.name));
 
     void Start()
     {
         next = Time.unscaledTime + 2.5f;   // the census and the net have the first seconds
-        if (Known.Count == 0) return;
+        if (Known.Count == 0 && KnownShaders.Count == 0) return;
         // what the last session confirmed is swapped before anyone sees it
         int n = Sweep(null, null);
         if (n > 0) Debug.LogWarning("PinkHunter: " + n + " material(s) drawn a way this machine cannot (found in an earlier session) put on stand-in shaders before the first frame. " + MaterialNet.Device());
@@ -154,7 +170,7 @@ public class PinkHunter : MonoBehaviour
         {
             var m = kv.Key;
             if (m.shader == null) continue;
-            if (Known.Contains(KeyOf(m))) { Swap(m, StandIn(m, 0)); continue; }
+            if (IsKnown(m)) { Swap(m, StandIn(m, 0)); continue; }
             attempts.TryGetValue(m, out int tried);
             if (tried < 0 || tried >= 2) continue;
             if (kv.Value > worstW) { worstW = kv.Value; worst = m; }
@@ -171,7 +187,10 @@ public class PinkHunter : MonoBehaviour
     {
         attempts[t.m] = -1;
         if (Known.Add(t.key)) PlayerPrefs.SetString(PrefsKey, string.Join("\n", Known));
-        int more = Sweep(t.key, t.m);
+        // a shader that fails with no keywords at all fails as a shader: everything on it goes over, whatever its keywords
+        bool plain = t.key.Contains(" [] ");
+        if (plain && t.was != null && KnownShaders.Add(t.was.name)) PlayerPrefs.SetString(ShadersKey, string.Join("\n", KnownShaders));
+        int more = Sweep(plain ? null : t.key, t.m);
         Debug.LogWarning("PinkHunter: '" + t.m.name + "' on " + t.key + " draws the error shader here — put on " + t.m.shader.name
             + (more > 0 ? ", and " + more + " more material(s) drawn the same way with it" : "") + ". " + MaterialNet.Device());
     }
@@ -186,7 +205,7 @@ public class PinkHunter : MonoBehaviour
             {
                 if (m == null || m == except || m.shader == null || !seen.Add(m)) continue;
                 string k = KeyOf(m);
-                if (key != null ? k != key : !Known.Contains(k)) continue;
+                if (key != null ? k != key : !IsKnown(m)) continue;
                 var standIn = StandIn(m, 0);
                 if (standIn == null || standIn == m.shader) continue;
                 Swap(m, standIn);
@@ -214,6 +233,7 @@ public class PinkHunter : MonoBehaviour
         if (transparent || attempt > 0) return unlit;
         var toon = Shader.Find("Momentum/Toon");
         if (toon == null || !toon.isSupported || m.shader == toon) return unlit;
+        if (KnownShaders.Contains(toon.name)) return unlit;
         foreach (string k in Known) if (k.StartsWith(toon.name + " ")) return unlit;
         return toon;
     }

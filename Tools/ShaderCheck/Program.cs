@@ -38,6 +38,7 @@ static class Program
         yield return ("MomentumToon.shader", "Outline", "OutlineVertex", "OutlineFragment", new[] { "FOG_LINEAR" });
         yield return ("MomentumSky.shader", "Sky", "SkyVertex", "SkyFragment", new[] { "" });
         yield return ("MomentumSheet.shader", "Sheet", "SheetVertex", "SheetFragment", new[] { "", "FOG_LINEAR", "FOG_EXP2" });
+        yield return ("MomentumParticle.shader", "Particle", "ParticleVertex", "ParticleFragment", new[] { "", "FOG_LINEAR", "FOG_EXP2" });
     }
 
     static int Main()

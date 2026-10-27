@@ -35,6 +35,7 @@ public static class ShaderInclusion
         "Momentum/ToonTransparent",                   // its glass and water
         "Momentum/Sky",                               // the painted skies (WorldLook.Skybox)
         "Momentum/Sheet",                             // MaterialNet's stand-in for a see-through sheet whose own shader comes out magenta
+        "Momentum/Particle",                          // the game's own particle shader (LevelKit.Particle): puffs, steam, embers, dust
     };
 
     /// The user's first check after a pull: did the toon shaders compile? Logs every message the compiler left, the pass
