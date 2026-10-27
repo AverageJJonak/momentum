@@ -1,0 +1,191 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 423808d9b259b264b884f67a159417b5, type: 3}
+  m_Name: LevelMetrics
+  m_EditorClassIdentifier: Assembly-CSharp::LevelMetrics
+  config: {fileID: 11400000, guid: f10c0de0000000000000000000000012, type: 2}
+  entrySpeeds:
+  - 8
+  - 10
+  - 12
+  - 14
+  - 16
+  - 18
+  - 20
+  - 24
+  slopeAngles:
+  - 10
+  - 17
+  - 28
+  - 35
+  - 45
+  dropHeights:
+  - 2
+  - 3.9
+  - 6
+  - 9
+  - 12
+  - 20
+  values:
+    baseRunSpeed: 8
+    groundAcceleration: 60
+    groundFriction: 8
+    bhopFrictionGraceTime: 0.1
+    gravity: 25
+    jumpImpulse: 9
+    coyoteTime: 0.15
+    jumpBufferTime: 0.15
+    airAcceleration: 90
+    airMaxWishSpeed: 1.2
+    airControlTurnRate: 90
+    slideActivationSpeed: 6
+    slideFriction: 0.6
+    slideSlopeAccelMultiplier: 1.5
+    slideJumpVerticalImpulse: 7
+    slideJumpHorizontalMultiplier: 1.15
+    perfectSlideJumpMinMultiplier: 1.04
+    slideJumpFadeStartSpeed: 14
+    slideJumpFadeEndSpeed: 22
+    slideEndSpeed: 1
+    slideCapsuleHeight: 0.9
+    fastfallExtraGravity: 10
+    wallRunMinSpeed: 6
+    wallRunMaxDuration: 1.6
+    wallRunGravityFactor: 0.15
+    wallRunEntryPop: 1.5
+    wallRunCatchSpeed: 1
+    wallRunRange: 0.7
+    wallRunJumpNormalImpulse: 6
+    wallRunJumpUpImpulse: 7
+    wallRunJumpTangentBoost: 1.08
+    wallRunJumpInputImpulse: 3
+    wallKickNormalImpulse: 7
+    wallKickUpImpulse: 6
+    wallKickTangentKeep: 0.8
+    wallKickInputImpulse: 3.5
+    dashSpeed: 18
+    dashDuration: 0.15
+    doubleJumpImpulse: 8.5
+    doubleJumpMinGroundClearance: 0.5
+    slamDownSpeed: 30
+    slamStorageConversion: 0.6
+    perfectBhopSpeedMultiplier: 1.18
+    perfectBhopMinMultiplier: 1.08
+    perfectBhopFadeStartSpeed: 18
+    perfectBhopFadeEndSpeed: 30
+    perfectBhopWindow: 0.05
+    capsuleHeight: 1.8
+    capsuleRadius: 0.4
+    maxSlopeAngle: 45
+    cameraRollFall: 14
+    styleSpeedPerRank: 0.035
+    padSpeedPerRank: 0.12
+    trickPerfectMultiplier: 1.12
+    trickPerfectMinMultiplier: 1.05
+    trickLandFloorSpeed: 8
+    staminaMaxPips: 3
+    fixedDeltaTime: 0.019999992
+  report: "LEVEL METRICS \u2014 the movement's envelope, from the motor's own rules
+    (tick 0.020 s, gravity 25.0, jump 9.0, run 8.0 m/s)\r\n\r\nTHE BODY: capsule
+    1.8 m tall, 0.8 m wide; sliding 0.9 m tall; NO step-up (any ledge is a wall:
+    bevel it); walkable slope up to 45\xB0; ceilings under 1.9 m stop a run, under
+    1.0 m stop a slide; openings under 1.0 m wide stop everything.\r\nTHE GROUND:
+    friction keeps 45% of any speed over 8.0 after 0.1 s and 14% after 0.25 s \u2014
+    a landing without a hop inside the 0.10 s grace throws the extra away. Running
+    down a slope gains nothing (speed is aligned, not grown); sliding down it does.\r\n\r\n1.
+    JUMPS, flat landing (same height). 'clean' = no air strafe; 'strafe' = the theoretical
+    best strafe every tick. Design gaps at 70\u201390% of the clean number for the
+    main line, up to the strafe number for a skip.\r\n| entry m/s | plain clean |
+    plain strafe | apex | air s | bhop(perfect) next | slide-jump clean | slide-jump
+    apex | double @apex | double late | design gap 70\u201390% |\r\n|---|---|---|---|---|---|---|---|---|---|---|\r\n|
+    8.0 | 5.6 m | 6.6 m | 1.53 m | 0.70 | \xD71.18 \u2192 9.4 | 5.0 m @9.2 | 0.91
+    m | 9.6 m | 11.2 m | 3.9\u20135.0 m |\r\n| 10.0 | 7.0 m | 7.8 m | 1.53 m | 0.70
+    | \xD71.18 \u2192 11.8 | 6.2 m @11.5 | 0.91 m | 12.0 m | 14.0 m | 4.9\u20136.3
+    m |\r\n| 12.0 | 8.4 m | 9.1 m | 1.53 m | 0.70 | \xD71.18 \u2192 14.2 | 7.5 m
+    @13.8 | 0.91 m | 14.5 m | 16.8 m | 5.9\u20137.6 m |\r\n| 14.0 | 9.8 m | 10.4
+    m | 1.53 m | 0.70 | \xD71.18 \u2192 16.5 | 8.7 m @16.1 | 0.91 m | 16.9 m | 19.6
+    m | 6.9\u20138.8 m |\r\n| 16.0 | 11.2 m | 11.7 m | 1.53 m | 0.70 | \xD71.18 \u2192
+    18.9 | 9.9 m @18.4 | 0.91 m | 19.3 m | 22.4 m | 7.8\u201310.1 m |\r\n| 18.0 |
+    12.6 m | 13.1 m | 1.53 m | 0.70 | \xD71.18 \u2192 21.2 | 11.2 m @20.7 | 0.91
+    m | 21.7 m | 25.2 m | 8.8\u201311.3 m |\r\n| 20.0 | 14.0 m | 14.4 m | 1.53 m
+    | 0.70 | \xD71.16 \u2192 23.3 | 12.2 m @22.6 | 0.91 m | 24.1 m | 28.0 m | 9.8\u201312.6
+    m |\r\n| 24.0 | 16.8 m | 17.2 m | 1.53 m | 0.70 | \xD71.13 \u2192 27.1 | 14.2
+    m @26.3 | 0.91 m | 28.9 m | 33.6 m | 11.8\u201315.1 m |\r\n\r\n2. PLAIN JUMP
+    TO A LANDING OF ANOTHER HEIGHT (clean): the distance covered when the landing
+    is below (\u2212) or above (+) the launch; '\u2014' = cannot reach that height\r\n|
+    entry m/s | \u22126 m | \u22123 m | \u22121 m | 0 | +1 m | +1.5 m |\r\n|---|---|---|---|---|---|---|\r\n|
+    8.0 | 9.0 m | 7.6 m | 6.4 m | 5.6 m | 4.4 m | 3.2 m |\r\n| 10.0 | 11.3 m | 9.5
+    m | 8.0 m | 7.0 m | 5.6 m | 4.0 m |\r\n| 12.0 | 13.5 m | 11.4 m | 9.6 m | 8.4
+    m | 6.7 m | 4.8 m |\r\n| 14.0 | 15.8 m | 13.3 m | 11.2 m | 9.8 m | 7.8 m | 5.6
+    m |\r\n| 16.0 | 18.0 m | 15.2 m | 12.8 m | 11.2 m | 8.9 m | 6.4 m |\r\n| 18.0
+    | 20.3 m | 17.1 m | 14.4 m | 12.6 m | 10.0 m | 7.2 m |\r\n| 20.0 | 22.5 m | 19.0
+    m | 16.0 m | 14.0 m | 11.1 m | 8.0 m |\r\n| 24.0 | 27.0 m | 22.8 m | 19.2 m |
+    16.8 m | 13.3 m | 9.6 m |\r\n\r\n3. WALL RUN (entered from level flight) and
+    the jump off it. The run keeps its pace, never gains; gravity sags back over
+    its 1.6 s; it needs 6.0 m/s and a wall within 0.7 m. 'level' = how far before
+    you are back under the height you attached at.\r\n| entry m/s | run 0.5 s | run
+    1.0 s | full run | drop over full | level distance | wall jump \u2192 h, up |
+    wall kick \u2192 h, up |\r\n|---|---|---|---|---|---|---|---|\r\n| 8.0 | 4.0
+    m | 8.0 m | 13.0 m | 7.3 m | 5.4 m | 12.5, 7.0 m/s | 12.3, 6.0 m/s |\r\n| 10.0
+    | 5.0 m | 10.0 m | 16.2 m | 7.3 m | 6.8 m | 14.1, 7.0 m/s | 13.2, 6.0 m/s |\r\n|
+    12.0 | 6.0 m | 12.0 m | 19.4 m | 7.3 m | 8.2 m | 15.8, 7.0 m/s | 14.2, 6.0 m/s
+    |\r\n| 14.0 | 7.0 m | 14.0 m | 22.7 m | 7.3 m | 9.5 m | 17.6, 7.0 m/s | 15.4,
+    6.0 m/s |\r\n| 16.0 | 8.0 m | 16.0 m | 25.9 m | 7.3 m | 10.9 m | 19.5, 7.0 m/s
+    | 16.6, 6.0 m/s |\r\n| 18.0 | 9.0 m | 18.0 m | 29.2 m | 7.3 m | 12.2 m | 21.4,
+    7.0 m/s | 17.8, 6.0 m/s |\r\n| 20.0 | 10.0 m | 20.0 m | 32.4 m | 7.3 m | 13.6
+    m | 23.4, 7.0 m/s | 19.1, 6.0 m/s |\r\n| 24.0 | 12.0 m | 24.0 m | 38.9 m | 7.3
+    m | 16.3 m | 27.4, 7.0 m/s | 21.9, 6.0 m/s |\r\nA full run drops 7.3 m whatever
+    the speed; the first 0.68 s stay level. The wall jump's arc then lasts 0.56 s
+    (0.98 m up). Staggered walls want a gap of about 3.6\u20137.1 m between faces
+    at 8\u201314 m/s.\r\n\r\n4. SLIDES. Flat: the bleed at 0.60/s until 1.0 m/s.
+    Slopes: speed gained per second sliding straight down; the run up a slope before
+    a slide stops, from 12 m/s.\r\n| entry m/s | flat slide distance | flat slide
+    seconds |\r\n|---|---|---|\r\n| 8.0 | 11.7 m | 3.5 s |\r\n| 10.0 | 15.0 m | 3.8
+    s |\r\n| 12.0 | 18.3 m | 4.1 s |\r\n| 14.0 | 21.7 m | 4.4 s |\r\n| 16.0 | 25.0
+    m | 4.6 s |\r\n| 18.0 | 28.3 m | 4.8 s |\r\n| 20.0 | 31.7 m | 5.0 s |\r\n| 24.0
+    | 38.3 m | 5.3 s |\r\n| slope | gain per second (down) | after 2 s from 8 m/s
+    | run up before stopping, from 12 m/s | from 16 m/s |\r\n|---|---|---|---|---|\r\n|
+    10\xB0 | +6.5 m/s\xB2 | 21.0 m/s | 11.1 m | 19.7 m |\r\n| 17\xB0 | +11.0 m/s\xB2
+    | 29.9 m/s | 6.6 m | 11.7 m |\r\n| 28\xB0 | +17.6 m/s\xB2 | 43.2 m/s | 4.1 m
+    | 7.3 m |\r\n| 35\xB0 | +21.5 m/s\xB2 | 51.0 m/s | 3.3 m | 6.0 m |\r\n| 45\xB0
+    | +26.5 m/s\xB2 | 61.0 m/s | 2.7 m | 4.8 m |\r\n\r\n5. DROPS. No fall damage.
+    The camera rolls on landings over 14.0 m/s, a drop of 3.9 m. A flat landing keeps
+    all horizontal speed for 0.10 s, then friction; a slope landing keeps the fall's
+    share along the slope. 'carried' = the gap you cross while falling that far at
+    8 / 12 / 16 m/s.\r\n| drop | fall s | fall s (fastfall) | landing m/s | carried
+    @8 | @12 | @16 | slam-jump pay (perfect) |\r\n|---|---|---|---|---|---|---|---|\r\n|
+    2.0 m | 0.40 | 0.34 | 10.0 | 3.2 m | 4.8 m | 6.4 m | +6.0 m/s |\r\n| 3.9 m |
+    0.56 | 0.47 | 14.0 | 4.5 m | 6.7 m | 8.9 m | +8.4 m/s |\r\n| 6.0 m | 0.69 | 0.59
+    | 17.3 | 5.5 m | 8.3 m | 11.1 m | +10.4 m/s |\r\n| 9.0 m | 0.85 | 0.72 | 21.2
+    | 6.8 m | 10.2 m | 13.6 m | +12.7 m/s |\r\n| 12.0 m | 0.98 | 0.83 | 24.5 | 7.8
+    m | 11.8 m | 15.7 m | +14.7 m/s |\r\n| 20.0 m | 1.26 | 1.07 | 31.6 | 10.1 m |
+    15.2 m | 20.2 m | +18.0 m/s |\r\n\r\n6. WHAT EACH TECHNIQUE DOES TO SPEED, from
+    12.0 m/s (the pip costs from 3 pips):\r\n| technique | result | cost |\r\n|---|---|---|\r\n|
+    plain jump / lazy bhop | 12.0 m/s kept | \u2014 |\r\n| perfect bhop (\xB150 ms)
+    | \xD71.18 \u2192 14.2 m/s | \u2014 |\r\n| perfect slide jump | \xD71.15 \u2192
+    13.8 m/s, 0.98 m up | \u2014 |\r\n| lazy slide jump | \xD71.15 \u2192 13.8 m/s
+    | \u2014 |\r\n| wall run | 12.0 m/s kept, 7.3 m lost in height over a full run
+    | \u2014 |\r\n| wall jump (off a run, held away) | 15.8 m/s, 7.0 m/s up | \u2014
+    |\r\n| wall kick (mid-air, held away) | 14.2 m/s turned off the wall, 6.0 m/s
+    up | first free, then 1 pip |\r\n| dash | 18.0 m/s for 0.15 s and kept in the
+    air (+6.0) | 1 pip |\r\n| double jump | 12.0 m/s kept, redirected to the stick,
+    1.45 m up | 1 pip |\r\n| slam then perfect slam-jump, 6 m drop | +10.4 m/s along
+    the stick | 1 pip, refunded |\r\n| perfect trick landing | 13.4 m/s (\xD71.12)
+    | \u2014 |\r\n| missed trick | \xD70.35 and a stumble | \u2014 |\r\n| landing
+    without a hop, 0.25 s on the ground | 8.0 m/s | \u2014 |\r\n| sliding up a 17\xB0
+    ramp | stops after 6.6 m | \u2014 |\r\n| running up any ramp above run speed
+    | friction: back to 8.0 m/s within ~0.3 s | \u2014 |\r\n\r\n7. LADDERS. Perfect
+    hops from run speed (each landing timed): 9.4 \u2192 11.1 \u2192 13.1 \u2192
+    15.5 \u2192 18.3 \u2192 21.6 \u2192 24.8 \u2192 27.9 m/s. Run speed by style
+    rank: 0: 8.00, 1: 8.28, 2: 8.56, 3: 8.84, 4: 9.12, 5: 9.40.\r\nPads: a jump pad
+    with up U rises U\xB2/(2g): 16 \u2192 5.1 m, 19 \u2192 7.2 m; a momentum pad
+    fires max(speed, floor 8) \xD7 (1 + 0.12 \xD7 rank).\r\n"
