@@ -61,3 +61,8 @@ desktop.ini
 
 # Unity Version Control workspace (a cloud org id and a 500 KB tree cache; nothing the repo needs)
 /.plastic/
+
+# the validator's rendered overheads (3-5 MB each, regenerated every run; the drawn plans and the reports are kept)
+/Docs/Design/validation/*-overhead.png
+/Docs/Design/validation/ALL-overheads.png
+/Docs/Design/validation-plans.png

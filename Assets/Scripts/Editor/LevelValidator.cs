@@ -213,6 +213,7 @@ public static class LevelValidator
         foreach (var c in g.ceils)
         {
             if (c.col == p.col) continue;
+            if (Mathf.Min(c.maxX - c.minX, c.maxZ - c.minZ) < 0.6f) continue;
             if (at.x < c.minX || at.x > c.maxX || at.z < c.minZ || at.z > c.maxZ) continue;
             float h = c.YAt(at.x, at.z) - at.y;
             if (h > -0.02f && h < 1.0f) return true;   // a slab sitting on it (h = 0) covers it as surely as one a hair above
@@ -286,6 +287,7 @@ public static class LevelValidator
                 float dy = yb - ya;
                 if (dy > 2f || dy < -40f) continue;
                 a.y = ya; b.y = yb;
+                if (Clearance(g, P, a) < 1.0f || Clearance(g, Q, b) < 1.0f) continue;   // no headroom to leave or to land: not a way
                 var e = new Edge { from = i, to = j, gap = gap, dy = dy, a = a, b = b };
                 if (gap <= Touch && Mathf.Abs(dy) <= StepMin) { e.move = Move.Walk; e.cost = 0f; }
                 else if (gap <= Touch && dy < -StepMin) { e.move = Move.Drop; e.cost = 0.5f; }
@@ -594,11 +596,11 @@ public static class LevelValidator
                     if (clear < 1.0f)
                         res.findings.Add(new Finding { severity = 80, title = "A CEILING TOO LOW EVEN TO SLIDE", segment = seg.name, at = clearAt,
                             experience = "Headroom of " + clear.ToString("0.00", Ci) + " m: a run stops here and a slide (0.9 m) scrapes or stops. The line is blocked unless there is another way round.",
-                            where = "Segment " + seg.name + ": over '" + clearOver + "' at " + Fmt(clearAt) + ".", why = "A solid underside sits within a metre of the floor." });
+                            where = "Segment " + seg.name + ": over '" + clearOver + "' at " + Fmt(clearAt) + ".", why = "The underside of " + Over(g, clearP <= clearQ ? P : Q, clearAt) + " sits within a metre of the floor." });
                     else if (clear < 1.95f)
                         res.findings.Add(new Finding { severity = 15, title = "A FORCED SLIDE", segment = seg.name, at = clearAt,
                             experience = "Headroom of " + clear.ToString("0.00", Ci) + " m: the only way through is a slide, and a hop into it is a stop. Fine as a beat; a problem if it comes without warning at speed.",
-                            where = "Segment " + seg.name + ": over '" + clearOver + "' at " + Fmt(clearAt) + ".", why = "A beam or underside between 1.0 and 1.9 m over the floor." });
+                            where = "Segment " + seg.name + ": over '" + clearOver + "' at " + Fmt(clearAt) + ".", why = "The underside of " + Over(g, clearP <= clearQ ? P : Q, clearAt) + " is between 1.0 and 1.9 m over the floor." });
                     // the turn: a dead stop against a wall
                     if (prevE != null)
                     {
@@ -636,18 +638,29 @@ public static class LevelValidator
 
     static float Across(Plat Q, Vector3 dir) => Mathf.Abs(dir.x) >= Mathf.Abs(dir.z) ? Q.Depth : Q.Width;
 
-    static float Clearance(Geometry g, Plat Q, Vector3 at)
+    static float Clearance(Geometry g, Plat Q, Vector3 at) => Clearance(g, Q, at, out _);
+
+    static float Clearance(Geometry g, Plat Q, Vector3 at, out Ceil hit)
     {
         float floor = Q.YAt(at.x, at.z), best = float.MaxValue;
+        hit = null;
         foreach (var c in g.ceils)
         {
             if (c.col == Q.col) continue;
             if (c.maxX - c.minX < 3f && c.maxZ - c.minZ < 3f) continue;   // a desk, a crate, a column: a thing to run round, not a ceiling
+            if (Mathf.Min(c.maxX - c.minX, c.maxZ - c.minZ) < 0.6f) continue;   // the end face of a plate stood on edge: not a ceiling
             if (at.x < c.minX - 0.3f || at.x > c.maxX + 0.3f || at.z < c.minZ - 0.3f || at.z > c.maxZ + 0.3f) continue;
             float h = c.YAt(at.x, at.z) - floor;
-            if (h > 0.2f && h < best) best = h;
+            if (h > 0.2f && h < best) { best = h; hit = c; }
         }
         return best;
+    }
+
+    /// The name of what hangs over a point of Q, for the report
+    static string Over(Geometry g, Plat Q, Vector3 at)
+    {
+        Clearance(g, Q, at, out Ceil hit);
+        return hit != null && hit.col != null ? "'" + hit.col.gameObject.name + "' (its underside at y " + hit.YAt(at.x, at.z).ToString("0.0", Ci) + ", " + (hit.maxX - hit.minX).ToString("0", Ci) + " by " + (hit.maxZ - hit.minZ).ToString("0", Ci) + " m)" : "something";
     }
 
     /// The least headroom along a run across P from `from` to `to`, sampled every metre, and where it was
