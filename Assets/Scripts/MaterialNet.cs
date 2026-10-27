@@ -179,13 +179,13 @@ public static class MaterialNet
         probeCam.clearFlags = CameraClearFlags.SolidColor;
         probeCam.backgroundColor = Color.black;
         probeCam.cullingMask = 1 << layer;
-        probeCam.allowHDR = false;
+        probeCam.allowHDR = true;
         probeCam.allowMSAA = false;
         var data = probeCam.GetUniversalAdditionalCameraData();
         if (data != null)
         {
             data.renderPostProcessing = false;
-            data.renderShadows = false;
+            data.renderShadows = true;    // THE MAIN CAMERA'S VARIANT (2026-10-27): shadows on, so the probe compiles the shadowed variant the game draws
             data.antialiasing = AntialiasingMode.None;
             data.requiresColorOption = CameraOverrideOption.Off;
             data.requiresDepthOption = CameraOverrideOption.Off;
