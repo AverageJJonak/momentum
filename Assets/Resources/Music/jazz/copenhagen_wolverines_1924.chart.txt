@@ -1,0 +1,10 @@
+# Copenhagen, Wolverines 1924
+# measured 2026-10-08 by MusicAnalyse (offline, same code as the engine): 112.6 bpm (x1.9), phases 26/26/25/23
+# bpm = the beat the bed rides (the half-note pulse of a 2/2 side); the grid still follows the band (no fixed=1)
+# offset = first downbeat (s); key margin +0.08; tuning +19c (the sub and the stabs follow it)
+bpm=112.64
+offset=0.29
+key=Bb
+pool=office
+rms=-22.7
+gramophone=1   # the lobby layer, off unless MusicDirector.Gramophone; lead=1 would make it a measured lead again

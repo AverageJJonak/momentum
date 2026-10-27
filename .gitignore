@@ -1,0 +1,60 @@
+# Unity generated folders (rebuilt on open; Library alone is 2.5 GB)
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emory[Cc]aptures/
+/[Rr]ecordings/
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+/Assets/AssetStoreTools*
+/Assets/Plugins/PlasticSCM*
+
+# IDE and generated project files
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+sysinfo.txt
+*.apk
+*.aab
+*.unitypackage
+*.app
+crashlytics-build.properties
+/Assets/StreamingAssets/aa.meta
+/Assets/StreamingAssets/aa/*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Project: the source packs (CC0 textures, Kenney kits, the Mixamo clips Adobe does not allow redistributing),
+# the parked old code and snapshots, the copyrighted reference frames, the preview tool's renders and binary
+/Incoming/
+/Attic/
+/Docs/Reference/
+/Tools/MenuPreview/out/
+/Tools/MenuPreview/*.exe
+/Tools/**/bin/
+/Tools/**/obj/

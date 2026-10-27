@@ -1,0 +1,41 @@
+MOMENTUM — THE SCORE
+====================
+
+2026-10-08: THE OLD SCORE IS GONE. The recorded loops (city DnB, under electro
+house, office house, the vaporwave menu track, the ambient calm/chill loops and
+the three boss tracks) were moved, with their .meta files and the full licence
+list, to C:\Users\D\MovementShooter\Attic\Music (outside Assets: nothing there
+is built or loaded). The director no longer references any of them.
+
+The score is a REMIX (MusicRemix.cs, MusicDirector.cs). Since 2026-10-16 the
+LEAD is THE HOTEL ROOM (MusicHotel.cs): a procedural noir-jazz side in the mould
+of Hareton Salvanini's "Quarto de Hotel" (1974) — slow, an electric-bass
+ostinato, brushed boom-bap, Rhodes, a muted trumpet, strings, tape wobble and
+vinyl — thirteen seeded sides across the pools (menu, city, under, office, boss),
+with a jazz-hop BED (MusicBeds.cs: the beat hardening, an 808 under the bass,
+rolls, brass stabs, the strings swelling; double-time breaks in flow) synthesised
+on the lead's own plan. Nothing in the lead or the beds is sampled; music is the
+one place synthesis is allowed, every SFX stays a recording.
+
+Resources/Music/jazz/   the GRAMOPHONE: public-domain 78s used only as a rare,
+                        low, band-passed layer in the lobby and the calm, and
+                        only when MusicDirector.Gramophone is on (off by
+                        default). A side whose chart says lead=1 is measured
+                        and played as a lead instead (the 2026-10-08 engine).
+                        See jazz/README.txt. Public domain, CC0 or CC-BY ONLY.
+
+Gramophone sides (not leads)
+----------------------------
+  Twelve 1922–1925 sides from the Internet Archive's Great 78 Project, PUBLIC
+  DOMAIN in the US (recordings published 1925 or earlier, 17 U.S.C. 1401), fetched
+  2026-10-08 with the owner's go-ahead: the full list with every source URL is
+  jazz/JAZZ_LICENSES.txt. All twelve carry gramophone=1 in their charts: heard
+  only as the gramophone layer when MusicDirector.Gramophone is on. No credit is
+  required; the transfers carry no separate claim.
+
+  format for a new entry:
+  jazz/<file>   = "<title>" by <artist> (<year>), <source url> — <licence>
+                  CREDIT REQUIRED for CC-BY: "<credit line>"
+
+Everything synthesised (the beds, the crackle, the risers, the procedural band)
+is this project's own code and needs no credit.

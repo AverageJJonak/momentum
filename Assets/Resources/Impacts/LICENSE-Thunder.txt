@@ -1,0 +1,19 @@
+THUNDER (the main menu's storm) — five recordings, all CC-BY or public domain. Attribution:
+
+thunder_oga_jerimee_clap.wav
+  "Thunder" by Jerimee — https://opengameart.org/content/thunder — CC-BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+  (the file is a RIFF WAV that OpenGameArt serves as thunderclap_0.ogg; renamed to its real type)
+
+thunder_commons_humphries_nosferatu.wav
+  "Nosferatu thunderclap" by Richard Humphries — https://commons.wikimedia.org/wiki/File:Nosferatu_thunderclap_-_Richard_Humphries.wav — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+
+thunder_commons_bidgee.ogg
+  "Thunder.ogg" by Bidgee — https://commons.wikimedia.org/wiki/File:Thunder.ogg — CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+
+thunder_oga_inspectorj_close_rain.wav
+  "Thunder, Very Close, Rain, 01" by InspectorJ (www.jshaw.co.uk) — https://opengameart.org/content/thunder-very-close-rain-01 — CC-BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+
+thunder_commons_caesar_rain.ogg
+  "Rain and thunder.ogg" by User:Caesar (Wikimedia Commons) — https://commons.wikimedia.org/wiki/File:Rain_and_thunder.ogg — public domain (released by the author)
+
+Files are unmodified apart from renaming. GameFeel buckets them as "thunder" (the thunder_ prefix); MenuBackdrop plays one after each lightning flash.

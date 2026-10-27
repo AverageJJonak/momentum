@@ -1,0 +1,7 @@
+﻿Recorded samples from OpenGameArt.org, all CC0 (public domain, no attribution required):
+- "RPG Sound Pack" by artisticdude - https://opengameart.org/content/rpg-sound-pack  (swing_oga_*, oga_metal-*)
+- "20 Sword Sound Effects (Attacks and Clashes)" by StarNinjas - https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes  (parry_sn_*, swing_sn_*). Credit appreciated by the author: link to their OGA profile.
+- "Swishes Sound Pack" by artisticdude - https://opengameart.org/content/swishes-sound-pack  (whoosh_soft_*, whoosh_hard_*)
+Kenney "Sci-fi Sounds" and "Interface Sounds" (CC0) - https://kenney.nl  (shot_, projhit_, boom_, sub_, warp_, portal_, stagger_, tick_, rankup_, rankdown_, dud_, ching_, warn_, flowin_, flowout_, glitch_, slide_, finish_, spawn_)
+- "Medieval sound effects - Weapon Textures" by Ben Jaszczak & Brian Nelson - https://opengameart.org/content/medieval-sound-effects-weapon-textures  (bowdraw_med_*, bownock_med_*, bowshot_med_*: the English Longbow and Scythian Recurve draw / nock / set-arrow / shoot recordings and the crossbow shot, split into takes, downsampled 192k 24-bit -> 48k 16-bit mono, normalised)
+- "Battle Sound Effects" by artisticdude (CC0 option of its multi-licence) - https://opengameart.org/content/battle-sound-effects  (bowshot_ad_bow)

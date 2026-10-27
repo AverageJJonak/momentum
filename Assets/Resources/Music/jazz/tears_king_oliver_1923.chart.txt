@@ -1,0 +1,10 @@
+# Tears, King Oliver 1923
+# measured 2026-10-08 by MusicAnalyse (offline, same code as the engine): 101.6 bpm (x3.4), phases 25/24/27/24
+# bpm = the beat the bed rides (the half-note pulse of a 2/2 side); the grid still follows the band (no fixed=1)
+# offset = first downbeat (s); key margin +0.28; tuning -38c (the sub and the stabs follow it)
+bpm=101.56
+offset=1.27
+key=Gm
+pool=under
+rms=-19.4
+gramophone=1   # the lobby layer, off unless MusicDirector.Gramophone; lead=1 would make it a measured lead again
