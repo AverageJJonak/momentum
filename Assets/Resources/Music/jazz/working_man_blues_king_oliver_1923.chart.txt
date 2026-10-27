@@ -1,0 +1,10 @@
+# Working Man Blues, King Oliver 1923
+# measured 2026-10-08 by MusicAnalyse (offline, same code as the engine): 111.2 bpm (x2.9; slows from 113.5 to 108.7), phases 26/24/27/23
+# bpm = the beat the bed rides (the half-note pulse of a 2/2 side); the grid still follows the band (no fixed=1)
+# offset = first downbeat (s); key margin +0.06; tuning -31c (the sub and the stabs follow it)
+bpm=111.18
+offset=1.30
+key=Eb
+pool=office
+rms=-32.5
+gramophone=1   # the lobby layer, off unless MusicDirector.Gramophone; lead=1 would make it a measured lead again

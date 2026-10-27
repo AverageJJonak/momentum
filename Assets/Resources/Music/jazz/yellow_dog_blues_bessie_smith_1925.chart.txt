@@ -1,0 +1,10 @@
+# Yellow Dog Blues, Bessie Smith 1925
+# measured 2026-10-08 by MusicAnalyse (offline, same code as the engine): 93.0 bpm (x1.3), phases 25/25/26/24
+# bpm = the beat the bed rides (the half-note pulse of a 2/2 side); the grid still follows the band (no fixed=1)
+# offset = first downbeat (s); key margin +0.01 (weak); tuning -28c (the sub and the stabs follow it)
+bpm=93.00
+offset=1.65
+key=Eb
+pool=menu
+rms=-32.2
+gramophone=1   # the lobby layer, off unless MusicDirector.Gramophone; lead=1 would make it a measured lead again

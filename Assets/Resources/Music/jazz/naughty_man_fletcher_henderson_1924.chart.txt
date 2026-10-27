@@ -1,0 +1,10 @@
+# Naughty Man, Fletcher Henderson 1924
+# measured 2026-10-08 by MusicAnalyse (offline, same code as the engine): 79.1 bpm (x5.8; the half-note pulse, the quarters run 158), phases 26/26/25/23
+# bpm = the beat the bed rides (the half-note pulse of a 2/2 side); the grid still follows the band (no fixed=1)
+# offset = first downbeat (s); key margin +0.08; tuning +27c (the sub and the stabs follow it)
+bpm=79.12
+offset=0.41
+key=Gm
+pool=boss
+rms=-30.7
+gramophone=1   # the lobby layer, off unless MusicDirector.Gramophone; lead=1 would make it a measured lead again

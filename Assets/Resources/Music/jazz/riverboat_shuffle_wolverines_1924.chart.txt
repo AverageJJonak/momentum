@@ -1,0 +1,10 @@
+# Riverboat Shuffle, Wolverines 1924
+# measured 2026-10-08 by MusicAnalyse (offline, same code as the engine): 94.0 bpm (x1.5), phases 25/26/24/25
+# bpm = the beat the bed rides (the half-note pulse of a 2/2 side); the grid still follows the band (no fixed=1)
+# offset = first downbeat (s); key margin +0.00 (Dm or its relative F); tuning +16c (the sub and the stabs follow it)
+bpm=93.95
+offset=0.97
+key=Dm
+pool=office
+rms=-22.3
+gramophone=1   # the lobby layer, off unless MusicDirector.Gramophone; lead=1 would make it a measured lead again

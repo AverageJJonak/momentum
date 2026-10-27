@@ -1,0 +1,10 @@
+# Susie, Wolverines 1924
+# measured 2026-10-08 by MusicAnalyse (offline, same code as the engine): 103.3 bpm (x3.0), phases 24/25/26/24
+# bpm = the beat the bed rides (the half-note pulse of a 2/2 side); the grid still follows the band (no fixed=1)
+# offset = first downbeat (s); key margin +0.12; tuning +19c (the sub and the stabs follow it)
+bpm=103.25
+offset=1.30
+key=Bm
+pool=city
+rms=-25.4
+gramophone=1   # the lobby layer, off unless MusicDirector.Gramophone; lead=1 would make it a measured lead again

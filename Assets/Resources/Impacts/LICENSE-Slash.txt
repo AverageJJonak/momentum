@@ -1,0 +1,15 @@
+THE BLADE (the sword's swing and cut) — all CC0 (https://creativecommons.org/publicdomain/zero/1.0/), unmodified apart from renaming:
+
+shing_rd_blade_*.ogg, slash_rd_hit_*.ogg, whoosh_*_rd_air_*.ogg
+  rubberduck — "80 CC0 RPG SFX" (https://opengameart.org/content/80-cc0-rpg-sfx) and "100 CC0 SFX #2" (https://opengameart.org/content/100-cc0-sfx-2)
+
+shing_va_knife_*.wav, shing_va_seax_*.wav, clash_va_sword_*.wav
+  Vehicle — "Fantasy Weapons and Apparel SFX Library" (https://opengameart.org/content/fantasy-weapons-and-apparel-sfx-library)
+
+clash_cd_machete_*.wav
+  CYBERDEViL — "Machete vs. Spatula" (https://opengameart.org/content/machete-vs-spatula)
+
+slash_rm_*.wav
+  remaxim — "3 Melee sounds" (https://opengameart.org/content/3-melee-sounds)
+
+GameFeel buckets them as shing (the draw of the blade: every swing), clash (steel ringing: every cut) and slash (the blade through the target: every cut).

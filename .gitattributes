@@ -1,0 +1,23 @@
+# text files normalised to LF in the repo, Unity's own YAML included
+* text=auto
+
+# binaries: never touched by line-ending conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.psd binary
+*.tga binary
+*.ogg binary
+*.mp3 binary
+*.wav binary
+*.flac binary
+*.fbx binary
+*.glb binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary
+*.exe binary
+*.dll binary

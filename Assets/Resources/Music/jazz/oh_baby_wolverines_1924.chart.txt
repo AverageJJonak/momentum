@@ -1,0 +1,10 @@
+# Oh Baby, Wolverines 1924
+# measured 2026-10-08 by MusicAnalyse (offline, same code as the engine): 122.6 bpm (x2.1), phases 26/26/24/24
+# bpm = the beat the bed rides (the half-note pulse of a 2/2 side); the grid still follows the band (no fixed=1)
+# offset = first downbeat (s); key margin +0.06; tuning +8c (the sub and the stabs follow it)
+bpm=122.55
+offset=0.51
+key=Gm
+pool=under
+rms=-22.6
+gramophone=1   # the lobby layer, off unless MusicDirector.Gramophone; lead=1 would make it a measured lead again
