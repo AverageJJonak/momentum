@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.Rendering.Universal;
 
-public enum LevelKind { PracticeRange = 0, Tutorial = 1, Level1 = 2, Level2 = 3, MainMenu = 4, Level3 = 5, Level4 = 6, Level5 = 7, Level6 = 8, Level7 = 9, Level8 = 10, Level9 = 11, Level10 = 12, Level11 = 13, Level12 = 14, Level13 = 15 }
+public enum LevelKind { PracticeRange = 0, Tutorial = 1, Level1 = 2, Level2 = 3, MainMenu = 4, Level3 = 5, Level4 = 6, Level5 = 7, Level6 = 8, Level7 = 9, Level8 = 10, Level9 = 11, Level10 = 12, Level11 = 13, Level12 = 14, Level13 = 15, BeatGym = 16 }
 
 /// <summary>
 /// Scene entry point: sets the fixed tick rate, builds this scene's level,
@@ -60,6 +60,7 @@ public class GameBootstrap : MonoBehaviour
         LevelKind.Level11 => Level11Builder.Build(config),
         LevelKind.Level12 => Level12Builder.Build(config),
         LevelKind.Level13 => Level13Builder.Build(config),
+        LevelKind.BeatGym => BeatGymBuilder.Build(config),   // THE BEAT GYM (Phase 3, 2026-10-27)
         _ => TestLevelBuilder.Build(config),
         };
         CityVista.Build(kind); // the first act looks out on the city
