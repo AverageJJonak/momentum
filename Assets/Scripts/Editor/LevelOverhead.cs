@@ -3,6 +3,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// THE OVERHEAD (Phase 2, 2026-10-27; the user: "an editor button for an overhead screenshot of a level"). Two images
@@ -56,6 +57,62 @@ public static class LevelOverhead
         var plan = Plan(bounds, g);
         Paint(plan, bounds, paths, marks, spawn, checks, finish);
         Save(plan, name + "-plan.png");
+        try { ShootFromSpawn(name, spawn, (checks.Count > 0 ? checks[0] : finish) - spawn); } catch (System.Exception e) { Debug.LogWarning("LevelOverhead: the spawn shot of " + name + " failed (" + e.Message + ")"); }
+    }
+
+    // ---------------------------------------------------------------- the view from the spawn
+
+    /// A first-person frame from the spawn, looking along `forward`, drawn twice: as the game camera draws it (HDR,
+    /// the post stack, SMAA, dithering) and plain. The share of error-shader magenta in each is logged and returned, so
+    /// a shader that only fails on the game camera's path shows up here, where the top-down plan cannot see it
+    public static (float game, float plain) ShootFromSpawn(string name, Vector3 spawn, Vector3 forward)
+    {
+        float game = Shoot(name + "-spawn-game.png", spawn, forward, true), plain = Shoot(name + "-spawn-plain.png", spawn, forward, false);
+        Debug.Log("LevelOverhead: " + name + " from the spawn — magenta " + game.ToString("0.0") + "% on the game camera, " + plain.ToString("0.0") + "% on a plain one");
+        return (game, plain);
+    }
+
+    static float Shoot(string file, Vector3 spawn, Vector3 forward, bool gameLike)
+    {
+        const int W = 1600, H = 900;
+        var camGo = new GameObject("Spawn camera") { hideFlags = HideFlags.HideAndDontSave };
+        RenderTexture rt = null;
+        try
+        {
+            var cam = camGo.AddComponent<Camera>();
+            cam.fieldOfView = 90f; cam.nearClipPlane = 0.1f; cam.farClipPlane = 6000f;
+            cam.transform.position = spawn + Vector3.up * 1.62f;
+            Vector3 f = forward; f.y = 0f; if (f.sqrMagnitude < 1e-4f) f = Vector3.forward;
+            cam.transform.rotation = Quaternion.LookRotation(f.normalized, Vector3.up);
+            cam.allowHDR = gameLike; cam.allowMSAA = false;
+            var data = cam.GetUniversalAdditionalCameraData();
+            if (data != null)
+            {
+                data.renderPostProcessing = gameLike;
+                data.antialiasing = gameLike ? AntialiasingMode.SubpixelMorphologicalAntiAliasing : AntialiasingMode.None;
+                data.antialiasingQuality = AntialiasingQuality.High;
+                data.dithering = gameLike;
+            }
+            rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32); rt.Create();
+            cam.targetTexture = rt;
+            bool drawn = false;
+            try { if (RenderPipeline.SupportsRenderRequest(cam, new RenderPipeline.StandardRequest())) { RenderPipeline.SubmitRenderRequest(cam, new RenderPipeline.StandardRequest { destination = rt }); drawn = true; } } catch (System.Exception) { }
+            if (!drawn) cam.Render();
+            var tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
+            var prev = RenderTexture.active; RenderTexture.active = rt;
+            tex.ReadPixels(new Rect(0, 0, W, H), 0, 0); tex.Apply();
+            RenderTexture.active = prev; cam.targetTexture = null;
+            var px = tex.GetPixels32();
+            int pink = 0, total = 0;
+            for (int y = 0; y < H; y += 4) for (int x = 0; x < W; x += 4) { var c = px[y * W + x]; total++; if (c.r > 140 && c.b > 120 && c.g < 90 && c.r - c.g > 80 && c.b - c.g > 60) pink++; }
+            Save(tex, file);
+            return total > 0 ? 100f * pink / total : 0f;
+        }
+        finally
+        {
+            if (rt != null) { rt.Release(); Object.DestroyImmediate(rt); }
+            Object.DestroyImmediate(camGo);
+        }
     }
 
     // ---------------------------------------------------------------- the framing

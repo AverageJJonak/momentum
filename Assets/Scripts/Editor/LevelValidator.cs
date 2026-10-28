@@ -123,6 +123,10 @@ public static class LevelValidator
         b.roots = LevelEdits.NewRoots(scene, before);
         LevelEdits.Apply(LevelEdits.Load(kind), b.roots, config);   // the saved hand edits, as the game lays them on
         CoplanarFixer.Run();
+        // the look the game lays on next (the sky, the fog volumes, the lamps' glints, the smog sheets and the paper): what
+        // the player sees from the spawn is not whole without it
+        try { WorldLook.Apply(kind, LevelSections.Last); GameBootstrap.HardLine(kind); }
+        catch (Exception e) { Debug.LogWarning("LevelValidator: the look pass failed on " + kind + " (" + e.Message + ")"); }
         Physics.SyncTransforms();
         b.roots = LevelEdits.NewRoots(scene, before);
         b.layout = LevelSections.Last;
