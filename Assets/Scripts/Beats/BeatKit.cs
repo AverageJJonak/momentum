@@ -89,6 +89,8 @@ public class Frame
 
     /// The lit line down a floor (HARD LINE): where the run goes
     public void Line(float x, float z0, float z1, float y) => LevelKit.LineRun(root, P(x, y, z0), P(x, y, z1), zone);
+    /// The lit line down a slope: from (z0, y0) to (z1, y1)
+    public void LineRun(float x, float z0, float y0, float z1, float y1) => LevelKit.LineRun(root, P(x, y0, z0), P(x, y1, z1), zone);
 
     /// A sign over the line, read by whoever comes along it
     /// A sign over the line, read from the reset pad ten metres back: `size` 1 = 40 cm glyphs (LevelKit.Text's size is
