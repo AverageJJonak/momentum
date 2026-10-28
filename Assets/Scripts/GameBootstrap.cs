@@ -91,9 +91,21 @@ public class GameBootstrap : MonoBehaviour
             config = ScriptableObject.CreateInstance<MovementConfig>();
         }
 
-        // An editor level preview left in the scene would duplicate the world
-        foreach (var preview in FindObjectsByType<LevelPreviewMarker>(FindObjectsInactive.Include))
-            DestroyImmediate(preview.gameObject);
+        // An editor level preview left in the scene would duplicate the world. THE LEFTOVERS (2026-10-28, the gym's magenta
+        // ground and skyline): the Level Editor's working copy is flagged DontSaveInEditor, and an object so flagged is
+        // neither destroyed when its scene closes nor returned by FindObjectsByType, so a copy could outlive its scene,
+        // ride into every play session as an orphan with its materials collected (magenta), and hide from every sweep
+        // (the lint, the net, the census, the hunter, this purge). FindObjectsOfTypeAll sees everything
+        int leftovers = 0;
+        foreach (var preview in Resources.FindObjectsOfTypeAll<LevelPreviewMarker>())
+        {
+            if (preview == null) continue;
+            var go = preview.gameObject;
+            if (!go.scene.IsValid() && (go.hideFlags & HideFlags.DontSaveInEditor) == 0) continue;   // an asset, not a leftover
+            DestroyImmediate(go);
+            leftovers++;
+        }
+        if (leftovers > 0) Debug.LogWarning("GameBootstrap: " + leftovers + " level preview(s) left over from the editor destroyed before the build (they would have stood in this level, magenta).");
 
         GameSettings.Apply();
         MusicDirector.Ensure(); // the score outlives every scene and reads the game's state itself

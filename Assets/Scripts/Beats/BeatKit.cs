@@ -91,7 +91,10 @@ public class Frame
     public void Line(float x, float z0, float z1, float y) => LevelKit.LineRun(root, P(x, y, z0), P(x, y, z1), zone);
 
     /// A sign over the line, read by whoever comes along it
-    public void Sign(float x, float y, float z, string text, float size = 1.1f) => LevelKit.Text(root, P(x, y, z), Rot, text, size, MenuStyle.Paper, "BeatSign", 0f, false, 90f, 220f);
+    /// A sign over the line, read from the reset pad ten metres back: `size` 1 = 40 cm glyphs (LevelKit.Text's size is
+    /// glyph height ÷ 6.4 m: 1.0 there is a six-metre letter, which is what the first gym stood up), the lines shrunk
+    /// to fit the deck's width
+    public void Sign(float x, float y, float z, string text, float size = 1.1f) => LevelKit.Text(root, P(x, y, z), Rot, text, 0.0625f * size, MenuStyle.Paper, "BeatSign", 9f, false, 90f, 220f);
 
     /// A jump pad on the floor at (x, z), throwing `up` and `forward` metres a second along the line
     public void Pad(float x, float z, float y, float up, float forward) => LevelKit.JumpPad(root, P(x, y, z), yaw, up, forward);

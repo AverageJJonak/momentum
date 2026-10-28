@@ -37,11 +37,25 @@ public class PinkHunter : MonoBehaviour
     float next;
     int swapped;
 
+    /// THE AMNESTY (2026-10-28): every verdict the hunter reached before this date was reached with the Level Editor's
+    /// orphaned working copies on screen (materials collected, magenta, invisible to its sweep), so each one blamed an
+    /// innocent stock shader and swapped every material on it. Verdicts from before the era are forgotten once
+    const string EraKey = "PinkHunter.Era", Era = "2026-10-28";
+    static void Amnesty()
+    {
+        if (PlayerPrefs.GetString(EraKey, "") == Era) return;
+        bool had = PlayerPrefs.HasKey(PrefsKey) || PlayerPrefs.HasKey(ShadersKey);
+        PlayerPrefs.DeleteKey(PrefsKey); PlayerPrefs.DeleteKey(ShadersKey);
+        PlayerPrefs.SetString(EraKey, Era);
+        if (had) Debug.Log("PinkHunter: the verdicts remembered from earlier sessions are forgotten (they were reached with the editor's leftover copies on screen; see GameBootstrap).");
+    }
+
     static HashSet<string> Known
     {
         get
         {
             if (known != null) return known;
+            Amnesty();
             known = new HashSet<string>();
             string saved = PlayerPrefs.GetString(PrefsKey, "");
             foreach (string k in saved.Split('\n')) if (!string.IsNullOrWhiteSpace(k)) known.Add(k);
@@ -54,6 +68,7 @@ public class PinkHunter : MonoBehaviour
         get
         {
             if (knownShaders != null) return knownShaders;
+            Amnesty();
             knownShaders = new HashSet<string>();
             foreach (string k in PlayerPrefs.GetString(ShadersKey, "").Split('\n')) if (!string.IsNullOrWhiteSpace(k)) knownShaders.Add(k);
             return knownShaders;

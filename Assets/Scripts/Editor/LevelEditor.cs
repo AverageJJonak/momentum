@@ -56,6 +56,8 @@ public static partial class LevelEditor
         EditorApplication.playModeStateChanged += OnPlayMode;
         EditorSceneManager.sceneSaving += OnSceneSaving;
         EditorSceneManager.sceneOpened += (s, mode) => EditorApplication.delayCall += AutoForOpenScene;
+        EditorSceneManager.sceneClosing += (s, removing) => { var h = Holder(); if (h != null && h.gameObject.scene == s) { if (Dirty) WritePending(h.kind, Capture(h, null, null)); DestroyHolder(h); } };   // a copy never outlives its scene
+        EditorApplication.delayCall += () => Sweep("leftovers from before this load");   // copies a crash or an old session left standing
         ObjectChangeEvents.changesPublished += OnChanges;
         Undo.undoRedoPerformed += OnUndoRedo;
         if (!SessionState.GetBool(StartedKey, false))
@@ -108,11 +110,34 @@ public static partial class LevelEditor
 
     public static GameBootstrap FindBootstrap() => Object.FindAnyObjectByType<GameBootstrap>(FindObjectsInactive.Include);
 
+    /// The working copy, wherever it is. NoSave flags it DontSaveInEditor, and FindObjectsByType does not return an object
+    /// so flagged (2026-10-28: that is how copies went unfound at Play, outlived their scenes and stood magenta in every
+    /// level): FindObjectsOfTypeAll sees everything, assets excepted
     public static LevelHolder Holder()
     {
-        foreach (var h in Object.FindObjectsByType<LevelHolder>(FindObjectsInactive.Include))
-            if (h != null) return h;
+        foreach (var h in Resources.FindObjectsOfTypeAll<LevelHolder>())
+            if (h != null && !EditorUtility.IsPersistent(h)) return h;
         return null;
+    }
+
+    /// Every working copy and preview there is, loaded scene or not, taken down; how many went
+    public static int Sweep(string why)
+    {
+        int n = 0;
+        foreach (var m in Resources.FindObjectsOfTypeAll<LevelPreviewMarker>())
+        {
+            if (m == null || EditorUtility.IsPersistent(m)) continue;
+            working = true;
+            try { Object.DestroyImmediate(m.gameObject); n++; }
+            catch (Exception e) { Debug.LogWarning("Momentum Level Editor: a leftover copy would not go (" + e.Message + ")"); }
+            finally { working = false; }
+        }
+        if (n > 0)
+        {
+            EditorUtility.UnloadUnusedAssetsImmediate();
+            Debug.Log("Momentum Level Editor: " + n + " working cop" + (n == 1 ? "y" : "ies") + " taken down (" + why + ").");
+        }
+        return n;
     }
 
     /// Builds `kind` in the open scene, outside Play Mode, exactly as the game would (the same builders, the saved
@@ -320,10 +345,13 @@ public static partial class LevelEditor
         if (state == PlayModeStateChange.ExitingEditMode)
         {
             var h = Holder();
-            if (h == null) return;
-            if (Dirty) WritePending(h.kind, Capture(h, null, null));   // Play uses the unsaved edits, as it uses an unsaved scene
-            SessionState.SetInt(RegenKey, (int)h.kind + 1);
-            DestroyHolder(h);
+            if (h != null)
+            {
+                if (Dirty) WritePending(h.kind, Capture(h, null, null));   // Play uses the unsaved edits, as it uses an unsaved scene
+                SessionState.SetInt(RegenKey, (int)h.kind + 1);
+                DestroyHolder(h);
+            }
+            Sweep("Play begins: nothing of the editor's rides into the game");   // any other copy or preview too, loaded scene or not
         }
         else if (state == PlayModeStateChange.EnteredEditMode)
         {
