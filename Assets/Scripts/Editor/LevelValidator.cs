@@ -39,7 +39,7 @@ public static class LevelValidator
     const float Touch = 0.35f;          // rectangles this close are one floor
     const float StepMin = 0.08f;        // a rise this small is the capsule's business; above it the motor stops
     const float StepMax = 1.45f;        // the apex a standing jump reaches, less the body
-    const float ReachLimit = 42f;            // no pair further apart than this is asked about
+    const float ReachLimit = 80f;            // no pair further apart than this is asked about (a chain of wall runs carries a long way)
 
     // ---------------------------------------------------------------- the menu
 
