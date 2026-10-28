@@ -242,32 +242,76 @@ public class TechCheck : Beat
     }
 }
 
-/// HIDDEN ROUTE: a mass in the way with the obvious floor bending round its right; a slide slot straight through
-/// it, its mouth low in the mass's front at the far left corner behind a column
+/// HIDDEN ROUTE (rebuilt 2026-10-28; the user: "harder alternative routes that are faster if executed correctly").
+/// The lit line goes DOWN a slope and along the low floor. A HIGH LINE hangs on the left over that floor, with no lit
+/// line, only a lamp: off the approach's left edge a WALL RUN carries to a ledge, and the ledge runs on as a chain:
+///   I   wall run · a jump · a drop-slope                                                     (10 m/s)
+///   II  wall run · a slide under a bar · a slide jump · three hop stones (a tight bhop line) · a drop-slope (12 m/s)
+///   III wall run · a second wall run · the bar and the slide jump · a narrow chute (a precise drop)  (14 m/s)
+/// The drop at the end turns the high line's height into speed at the rejoin, and a long run-out is where that speed
+/// pays. Every piece of it stands over the main floor, so a fall is a landing on the lit line a little behind, never a
+/// reset. The lit line goes down by STEPS, not a slope (a slope would be a free slide and the faster line for anyone
+/// who keeps speed): as long as the high line, lower, and slower for everyone. The validator times both lines from
+/// reset pad to reset pad and reports the saving (LevelValidator: HIDDEN ROUTE). Names matter to it: Main… is the lit
+/// line's own, Hidden… the high line's.
 public class HiddenRoute : Beat
 {
     public override string Name => "HIDDEN ROUTE";
-    public override float EntrySpeed(LevelMetricsMath.Values v, int d) => 10f;
-    public override string Note(LevelMetricsMath.Values v, int d) => "round the right the long way · or find the slot";
+    public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, 10f, 12f, 14f);
+    public override string Note(LevelMetricsMath.Values v, int d) => "the lit line goes down · a HIGH LINE on the left: " + (d <= 1 ? "wall run, jump, drop" : d == 2 ? "wall run, SLIDE the bar, slide-jump, hop the stones, drop" : "wall run, wall run, slide the bar, slide-jump, the chute");
     public override float Build(Frame f, int d)
     {
-        float massLen = Pick(d, 16f, 22f, 28f), slotH = Pick(d, 1.3f, 1.2f, 1.1f);
-        const float massHalf = 6f, slotHalf = 1.3f, slotX = -4.2f;
-        f.Deck(0f, 6f, 0f, HalfW + 3f, "Approach"); f.Line(0f, 0.5f, 5.5f, 0f);
-        // the mass, in three pieces so the slot is a real hole: left of the slot, right of it, and over it
-        f.Mass(-massHalf, slotX - slotHalf, -1f, 6f, 6f, 6f + massLen, "MassLeft");
-        f.Mass(slotX + slotHalf, massHalf, -1f, 6f, 6f, 6f + massLen, "MassRight");
-        f.Mass(slotX - slotHalf, slotX + slotHalf, slotH, 6f, 6f, 6f + massLen, "MassOverSlot");
-        f.Deck(6f, 6f + massLen, 0f, slotHalf, "SlotFloor", slotX);
-        f.Mass(slotX - 1.8f, slotX + 1.8f, 0f, 5f, 2.6f, 4.1f, "Column");   // hides the mouth from the approach
-        // the obvious way: out to the right, along the mass, back in
-        float wayX = massHalf + 3f;
-        f.Deck(1f, 6f + massLen + 5f, 0f, 3f, "WayRound", wayX);
-        f.Mass(HalfW + 3f - 0.5f, wayX - 3f + 0.2f, -1f, 0f, 1f, 6f, "WayRoundIn", LevelKit.Floor);
-        f.Mass(HalfW + 3f - 0.5f, wayX - 3f + 0.2f, -1f, 0f, 6f + massLen, 6f + massLen + 5f, "WayRoundOut", LevelKit.Floor);
-        f.Deck(6f + massLen, 6f + massLen + 10f, 0f, HalfW + 3f, "Rejoin"); f.Line(0f, 6.5f + massLen, 15.5f + massLen, 0f);
-        f.Advance(6f + massLen + 10f, 0f);
-        return 10f;
+        float s = EntrySpeed(f.v, d);
+        const float wide = 6.5f, laneX = -5.1f, laneHalf = 1.3f, wallX = -7.1f, dropDeg = 28f, wallH = 4.5f;
+        float h = Pick(d, 4f, 6f, 8f);                                   // the main line's descent, and the high line's drop at its end
+        float carry = BeatMath.WallRunCarry(f.v, s, 0f) * 0.85f;        // the wall run and the jump off it, to a ledge at the same height
+        float dropDz = h / Mathf.Tan(dropDeg * Mathf.Deg2Rad);
+
+        // the lit line: the approach, three steps down (the low floor runs on to the rejoin, laid after the high line's length is known)
+        f.Deck(0f, 6f, 0f, wide, "Approach"); f.Line(0f, 0.5f, 5.5f, 0f);
+        f.Deck(6f, 10f, -h / 3f, wide, "MainStep"); f.Line(0f, 6.5f, 9.5f, -h / 3f);
+        f.Deck(10f, 14f, -2f * h / 3f, wide, "MainStep"); f.Line(0f, 10.5f, 13.5f, -2f * h / 3f);
+
+        // the high line: the wall off the approach's left edge, the first ledge where the run's jump lands
+        f.Wall(wallX, 4f, 6f + carry - 0.5f, -1f, wallH);
+        float z = 6f + carry;
+        f.Lamp(laneX, 4f, z + 1f, 18f, 2.4f);
+        if (d <= 1)
+        {
+            f.Deck(z, z + 8f, 0f, laneHalf, "HiddenLedge", laneX); z += 8f;
+            z += BeatMath.Gap(f.v, s, 0f, 0.8f);
+            f.Deck(z, z + 6f, 0f, laneHalf, "HiddenLedge", laneX); z += 6f;
+        }
+        else if (d == 2)
+        {
+            f.Deck(z, z + 10f, 0f, laneHalf, "HiddenLedge", laneX);
+            f.Mass(laneX - 1.6f, laneX + 1.6f, 1.25f, 2.25f, z + 6.5f, z + 10f, "HiddenBar");   // a slide, or a stop
+            z += 10f;
+            z += BeatMath.SlideJumpReach(f.v, s, 0f) * 0.8f;
+            float period = BeatMath.Reach(f.v, s, 0f), stone = 3.5f;   // a stone every clean arc at this speed: land, hop inside the grace, land
+            for (int i = 0; i < 3; i++) { f.Deck(z, z + stone, 0f, laneHalf, "HiddenHop", laneX); z += period; }
+            f.Deck(z, z + 6f, 0f, laneHalf, "HiddenLedge", laneX); z += 6f;
+        }
+        else
+        {
+            f.Deck(z, z + 8f, 0f, laneHalf, "HiddenLedge", laneX); z += 8f;
+            f.Wall(wallX, z - 1.5f, z - 1.5f + carry - 1f, -1f, wallH);   // the second wall begins before the ledge ends: run straight off onto it
+            z += carry;
+            f.Deck(z, z + 10f, 0f, laneHalf, "HiddenLedge", laneX);
+            f.Mass(laneX - 1.6f, laneX + 1.6f, 1.25f, 2.25f, z + 6.5f, z + 10f, "HiddenBar");
+            z += 10f;
+            z += BeatMath.SlideJumpReach(f.v, s, 0f) * 0.8f;
+        }
+        // the drop at the end: a slope the lane's width (a chute 1.8 m wide on III) down to the rejoin
+        f.Slope(z, 0f, z + dropDz, -h, d >= 3 ? 0.9f : laneHalf, d >= 3 ? "HiddenChute" : "HiddenDrop", laneX);
+        f.Lamp(laneX, 3f, z + 2f, 18f, 2.4f);
+        float zr = z + dropDz;
+
+        // the low floor under all of it, the rejoin where the drop lands
+        f.Deck(14f, zr, -h, wide, "MainFloor"); f.Line(0f, 14.5f, zr - 0.5f, -h);
+        f.Deck(zr, zr + 16f, -h, wide, "Rejoin"); f.Line(0f, zr + 0.5f, zr + 15.5f, -h);   // the run-out: sixteen metres where the high line's speed shows
+        f.Advance(zr + 16f, -h);
+        return f.v.baseRunSpeed;
     }
 }
 
@@ -322,6 +366,21 @@ public class Turn : Beat
 
 public static class BeatLibrary
 {
+    /// The speed a beat expects at difficulty `d`, from a checkpoint named for it ("HIDDEN ROUTE II"): the validator times
+    /// a hidden line at the speed its beat asks for; run speed for any other name
+    public static float ExpectedSpeed(string checkpointName, LevelMetricsMath.Values v)
+    {
+        if (string.IsNullOrEmpty(checkpointName)) return v.baseRunSpeed;
+        foreach (var b in All)
+        {
+            if (!checkpointName.StartsWith(b.Name)) continue;
+            string rest = checkpointName.Substring(b.Name.Length).Trim();
+            int d = rest == "III" ? 3 : rest == "II" ? 2 : 1;
+            return b.EntrySpeed(v, d);
+        }
+        return v.baseRunSpeed;
+    }
+
     /// Every beat, in the order the gym lays them out
     public static readonly List<Beat> All = new List<Beat>
     {

@@ -475,7 +475,7 @@ public static class LevelValidator
     }
 
     /// Dijkstra on (hardest move, then total effort): the main line is the line whose worst moment is mildest
-    static Segment Walk(Geometry g, List<Edge>[] edges, string name, Vector3 from, Vector3 to)
+    static Segment Walk(Geometry g, List<Edge>[] edges, string name, Vector3 from, Vector3 to, System.Func<Plat, bool> skip = null)
     {
         var seg = new Segment { name = name, from = from, to = to };
         seg.start = PlatUnder(g, from); seg.end = PlatUnder(g, to);
@@ -498,6 +498,7 @@ public static class LevelValidator
             foreach (var e in edges[u])
             {
                 if (done[e.to]) continue;
+                if (skip != null && skip(g.plats[e.to])) continue;   // a floor this walk is told to leave alone (the hidden routes)
                 var cand = (Mathf.Max(best[u].max, e.cost), best[u].sum + e.cost + 0.01f);
                 if (Less(cand, best[e.to])) { best[e.to] = cand; prev[e.to] = e; open.Add(e.to); }
             }
@@ -542,6 +543,157 @@ public static class LevelValidator
     static bool Less((float max, float sum) a, (float max, float sum) b) => a.max < b.max || (Mathf.Approximately(a.max, b.max) && a.sum < b.sum);
     static float Flat(Vector3 a, Vector3 b) => new Vector2(a.x - b.x, a.z - b.z).magnitude;
 
+    // ---------------------------------------------------------------- the hidden routes (2026-10-28)
+
+    /// A floor of a hidden line (named Hidden…) or of the lit line's own stretch beside it (Main…)
+    static bool IsHidden(Plat p) => p.name.StartsWith("Hidden");
+    static bool IsMainOnly(Plat p) => p.name.StartsWith("Main");
+
+    public class HiddenReport
+    {
+        public string segment, mainMoves, hiddenMoves;
+        public float speed, mainRun, mainKept, hidden, mainArrive, hiddenArrive;
+        public Vector3 at, forward;
+        public float SavesRun => mainRun - hidden;
+        public float SavesKept => mainKept - hidden;
+    }
+
+    /// Where a hidden line parts from the lit one and where they meet again, each stretch is timed: the lit line as a RUN
+    /// (run speed throughout, the slope ridden not slid, every drop a fall) and as KEPT (the hidden line's expected
+    /// speed carried by hops), the hidden line as EXECUTED (its speed kept, its slopes slid, its drops turned to speed
+    /// on a slope landing). Both are timed over the whole segment, reset pad to reset pad: the number the recorder's
+    /// segment column gives for a run, so the user can check it
+    static HiddenReport CompareRoutes(Geometry g, LevelMetricsMath.Values v, string segment, Segment main, Segment hid, float speed)
+    {
+        var ms = Sequence(main); var hs = Sequence(hid);
+        if (ms.Count < 2 || hs.Count < 2) return null;
+        int pre = 0;
+        while (pre < ms.Count && pre < hs.Count && ms[pre] == hs[pre]) pre++;
+        if (pre == ms.Count || pre == hs.Count) return null;   // one line is the other's prefix: no fork
+        int suf = 0;
+        while (suf < ms.Count - pre && suf < hs.Count - pre && ms[ms.Count - 1 - suf] == hs[hs.Count - 1 - suf]) suf++;
+        if (suf == 0) return null;   // they never meet again
+        bool any = false;
+        for (int i = pre; i < hs.Count - suf; i++) if (IsHidden(g.plats[hs[i]])) any = true;
+        if (!any) return null;   // the other way is not a hidden line
+        // the whole segment, pad to pad: what the recorder measures, so the user can check it against a run
+        var mainEdges = main.path;
+        var hidEdges = hid.path;
+        Vector3 entry = main.from; entry.y = g.plats[ms[0]].YAt(entry.x, entry.z);
+        Vector3 exit = main.to; exit.y = g.plats[ms[ms.Count - 1]].YAt(exit.x, exit.z);
+        var r = new HiddenReport { segment = segment, speed = speed, at = main.from, forward = main.to - main.from };
+        r.mainRun = PathTime(g, v, mainEdges, entry, exit, v.baseRunSpeed, false, out _, out r.mainMoves);
+        r.mainKept = PathTime(g, v, mainEdges, entry, exit, speed, true, out r.mainArrive, out _);
+        r.hidden = PathTime(g, v, hidEdges, entry, exit, speed, true, out r.hiddenArrive, out r.hiddenMoves);
+        return r;
+    }
+
+    static List<int> Sequence(Segment s)
+    {
+        var seq = new List<int>();
+        if (s.start < 0) return seq;
+        seq.Add(s.start);
+        foreach (var e in s.path) seq.Add(e.to);
+        return seq;
+    }
+
+    /// Seconds along `edges` from `entry` (on the first edge's floor) to `exit` (on the last edge's landing), at `speed`.
+    /// `executed`: the speed is kept on the flat (hops inside the grace), a downhill slope is slid and gains, a landing
+    /// on a slope keeps the fall's share along it. Not executed: run speed everywhere, slopes ridden, drops fallen
+    static float PathTime(Geometry g, LevelMetricsMath.Values v, List<Edge> edges, Vector3 entry, Vector3 exit, float speed, bool executed, out float arrive, out string moves)
+    {
+        float t = 0f, sp = executed ? speed : v.baseRunSpeed, flown = 0f;   // flown: ground already covered in the air when the feet touch the next floor
+        var sb = new StringBuilder();
+        foreach (var e in edges)
+        {
+            var P = g.plats[e.from]; var Q = g.plats[e.to];
+            t += Traverse(v, P, entry, e.a, ref sp, executed, ref flown);
+            float need = e.move == Move.Walk || e.move == Move.Drop || e.move == Move.Step ? 0f : e.speed;
+            float at = Mathf.Max(sp, need);   // a move that wants more than is carried is made at what it wants (the line asks it)
+            switch (e.move)
+            {
+                case Move.Walk: t += Flat(e.a, e.b) / Mathf.Max(1f, sp); break;
+                case Move.Step: t += 0.8f; sp = v.baseRunSpeed; break;   // a stop and a jump up
+                case Move.Drop:
+                {
+                    float h = Mathf.Max(0f, -e.dy), ft = LevelMetricsMath.FallTime(v, h, false);
+                    t += ft;
+                    flown = sp * ft;   // the fall carries the run on
+                    sp = Land(v, Q, sp, h, executed);
+                    break;
+                }
+                case Move.Jump:
+                case Move.DoubleJump:
+                {
+                    var arc = e.move == Move.Jump ? LevelMetricsMath.Jump(v, at, v.jumpImpulse, e.dy, false) : LevelMetricsMath.DoubleJump(v, at, e.dy, true, false);
+                    t += arc.time;
+                    flown = Mathf.Max(0f, arc.distance - (e.gap + Margin));   // the arc lands past the edge; that much of the next floor is already behind
+                    sp = Land(v, Q, at, Mathf.Max(0f, -e.dy), executed);
+                    break;
+                }
+                case Move.WallRun:
+                {
+                    t += (e.gap + Margin) / Mathf.Max(1f, at);   // the run keeps its pace, the jump off it too
+                    sp = Land(v, Q, at, Mathf.Max(0f, -e.dy), executed);
+                    break;
+                }
+            }
+            sb.Append(sb.Length > 0 ? " → " : "").Append(MoveWord(e));
+            entry = e.b;
+        }
+        if (edges.Count > 0) t += Traverse(v, g.plats[edges[edges.Count - 1].to], entry, exit, ref sp, executed, ref flown);
+        arrive = sp;
+        moves = sb.ToString();
+        return t;
+    }
+
+    /// The run across a floor from `from` to `to`: on the flat the speed is kept (executed) or is run speed; down a
+    /// slope an executed line slides and gains
+    static float Traverse(LevelMetricsMath.Values v, Plat P, Vector3 from, Vector3 to, ref float sp, bool executed, ref float flown)
+    {
+        float len = Flat(from, to);
+        float credit = Mathf.Min(flown, len); len -= credit; flown = 0f;   // what the last arc or fall already covered
+        if (len < 0.05f) return 0f;
+        if (!executed) { sp = v.baseRunSpeed; return len / sp; }
+        Vector3 d = to - from; d.y = 0f; d.Normalize();
+        if (P.slope >= 8f && Vector3.Dot(P.Uphill, d) < -0.5f)
+        {
+            float gain = LevelMetricsMath.SlideSlopeGain(v, P.slope);
+            float sp1 = Mathf.Sqrt(sp * sp + 2f * gain * len);
+            float t = len / Mathf.Max(1f, (sp + sp1) * 0.5f);
+            sp = sp1;
+            return t;
+        }
+        return len / Mathf.Max(1f, sp);
+    }
+
+    /// The speed after landing on Q from `h` metres up at `sp`: a slope keeps the fall's share along it (executed),
+    /// the flat keeps the horizontal (executed: the hop inside the grace) or settles to run speed
+    static float Land(LevelMetricsMath.Values v, Plat Q, float sp, float h, bool executed)
+    {
+        if (!executed) return v.baseRunSpeed;
+        if (Q.slope >= 8f && h > 0.5f)
+        {
+            float along = LevelMetricsMath.FallSpeed(v, h) * Mathf.Sin(Q.slope * Mathf.Deg2Rad);
+            return Mathf.Sqrt(sp * sp + along * along);
+        }
+        return sp;
+    }
+
+    static string MoveWord(Edge e) => e.move switch
+    {
+        Move.Walk => "run",
+        Move.Drop => "drop " + (-e.dy).ToString("0.0", Ci) + " m",
+        Move.Step => "STEP",
+        Move.Jump => "jump " + e.gap.ToString("0.0", Ci) + " m",
+        Move.DoubleJump => "double jump " + e.gap.ToString("0.0", Ci) + " m",
+        Move.WallRun => "wall run " + e.gap.ToString("0.0", Ci) + " m",
+        _ => e.move.ToString(),
+    };
+
+    static string HiddenLine(HiddenReport h) =>
+        "HIDDEN ROUTE " + h.segment + ", pad to pad: the lit line " + h.mainRun.ToString("0.0", Ci) + " s as a run (" + h.mainKept.ToString("0.0", Ci) + " s keeping " + h.speed.ToString("0", Ci) + " m/s) · the high line " + h.hidden.ToString("0.0", Ci) + " s at " + h.speed.ToString("0", Ci) + " m/s executed → SAVES " + h.SavesRun.ToString("0.0", Ci) + " s (" + h.SavesKept.ToString("0.0", Ci) + " s against a kept lit line); arrives at the merge at " + h.hiddenArrive.ToString("0", Ci) + " m/s against " + h.mainArrive.ToString("0", Ci) + " kept / " + "8 run. High line: " + h.hiddenMoves + ". Lit line: " + h.mainMoves + ".";
+
     // ---------------------------------------------------------------- the findings
 
     public class Finding { public int severity; public string title, experience, where, why; public Vector3 at; public string segment; public int number; }
@@ -551,6 +703,7 @@ public static class LevelValidator
         public LevelKind kind; public string title;
         public List<Finding> findings = new List<Finding>();
         public List<Segment> segments = new List<Segment>();
+        public List<HiddenReport> hidden = new List<HiddenReport>();   // every hidden line found and timed
         public int score; public float routeLength, wallRunMetres, flatMetres; public int jumps, drops, walls, plats, pads, checkpoints; public float longestGap, clearSeconds;
         public string summaryLine;
         public Bounds bounds;
@@ -580,10 +733,23 @@ public static class LevelValidator
                 res.findings.Add(new Finding { severity = 0, title = "NO WAYPOINTS TO WALK", segment = "the whole level", at = built.spawn,
                     experience = "This level names no checkpoints and no finish, so the validator has no line to follow; only the geometry was read.",
                     where = "The whole level.", why = "The main line runs from the spawn through the course's checkpoints to the finish; without them there is nothing to walk." });
+            bool hasHidden = g.plats.Exists(IsHidden);
             for (int i = 0; i + 1 < way.Count; i++)
             {
                 if (Flat(way[i].at, way[i + 1].at) < 2f && Mathf.Abs(way[i].at.y - way[i + 1].at.y) < 2f) continue;
-                res.segments.Add(Walk(g, edges, way[i].name + " → " + way[i + 1].name, way[i].at, way[i + 1].at));
+                string segName = way[i].name + " → " + way[i + 1].name;
+                var seg = Walk(g, edges, segName, way[i].at, way[i + 1].at);
+                res.segments.Add(seg);
+                // THE HIDDEN ROUTES (2026-10-28): the same stretch walked without the hidden floors (the lit line) and without
+                // the lit line's own (the high line); where they part, each is timed and the saving reported
+                if (!hasHidden || seg.broken) continue;
+                var mainOnly = Walk(g, edges, segName, way[i].at, way[i + 1].at, IsHidden);
+                var hiddenOnly = Walk(g, edges, segName, way[i].at, way[i + 1].at, IsMainOnly);
+                if (mainOnly.broken || hiddenOnly.broken) continue;
+                var hr = CompareRoutes(g, reach.v, segName, mainOnly, hiddenOnly, BeatLibrary.ExpectedSpeed(way[i].name, reach.v));
+                if (hr == null) continue;
+                res.hidden.Add(hr);
+                Debug.Log("LevelValidator: " + HiddenLine(hr));
             }
 
             // what the line meets
@@ -670,7 +836,7 @@ public static class LevelValidator
                                 why = "Running never gains or keeps speed above 8 m/s on the ground, and a slide fights gravity's share along the slope (" + LevelMetricsMath.SlideSlopeGain(reach.v, Q.slope).ToString("0.0", Ci) + " m/s² against it)." });
                         }
                     }
-                    float clearP = ClearanceAlong(g, P, entry, e.a, out Vector3 lowAt), clearQ = Clearance(g, Q, e.b);
+                    float clearP = ClearanceAlong(g, P, entry, e.a, out Vector3 lowAt, prevE != null ? g.plats[prevE.from].col : null), clearQ = Clearance(g, Q, e.b, P.col);   // the belly of the floor just stepped off is not a ceiling over this one
                     float clear = Mathf.Min(clearP, clearQ);
                     Vector3 clearAt = clearP <= clearQ ? lowAt : e.b;
                     string clearOver = clearP <= clearQ ? P.name : Q.name;
@@ -710,8 +876,14 @@ public static class LevelValidator
             for (int i = 0; i < res.findings.Count; i++) { res.findings[i].number = i + 1; res.score += res.findings[i].severity; }
             res.clearSeconds = res.routeLength / reach.v.baseRunSpeed + res.jumps * 0.7f + res.drops * 0.8f;
             res.summaryLine = kind + ": score " + res.score + ", " + res.findings.Count + " findings, line " + res.routeLength.ToString("0", Ci) + " m, ~" + res.clearSeconds.ToString("0", Ci) + " s at run speed, " + res.jumps + " gaps (longest " + res.longestGap.ToString("0.0", Ci) + " m), " + res.drops + " drops, wall-runnable " + res.wallRunMetres.ToString("0", Ci) + " m";
+            if (res.hidden.Count > 0) { var sv = new List<string>(); foreach (var h in res.hidden) sv.Add(h.SavesRun.ToString("0.0", Ci) + " s"); res.summaryLine += ", " + res.hidden.Count + " hidden route(s) saving " + string.Join(" / ", sv); }
             WriteReport(res, g);
             LevelOverhead.WriteImages(kind.ToString(), res.bounds, g, res.segments, res.findings, built.roots);
+            foreach (var h in res.hidden)   // the view from each hidden line's reset pad, as the player sees it
+            {
+                string tag = h.segment.Contains(" → ") ? h.segment.Substring(0, h.segment.IndexOf(" → ")) : h.segment;
+                try { LevelOverhead.ShootFromSpawn(kind + "-" + tag.Replace(' ', '-'), h.at, h.forward); } catch (Exception e) { Debug.LogWarning("LevelValidator: the hidden route shot failed (" + e.Message + ")"); }
+            }
             return res;
         }
         finally { Tear(built); }
@@ -720,14 +892,15 @@ public static class LevelValidator
     static float Across(Plat Q, Vector3 dir) => Mathf.Abs(dir.x) >= Mathf.Abs(dir.z) ? Q.Depth : Q.Width;
 
     static float Clearance(Geometry g, Plat Q, Vector3 at) => Clearance(g, Q, at, out _);
+    static float Clearance(Geometry g, Plat Q, Vector3 at, Collider ignore) => Clearance(g, Q, at, out _, ignore);
 
-    static float Clearance(Geometry g, Plat Q, Vector3 at, out Ceil hit)
+    static float Clearance(Geometry g, Plat Q, Vector3 at, out Ceil hit, Collider ignore = null)
     {
         float floor = Q.YAt(at.x, at.z), best = float.MaxValue;
         hit = null;
         foreach (var c in g.ceils)
         {
-            if (c.col == Q.col) continue;
+            if (c.col == Q.col || (ignore != null && c.col == ignore)) continue;   // the floor's own belly; the belly of the floor just stepped off (a step down reads its seam as a ceiling otherwise)
             if (c.maxX - c.minX < 3f && c.maxZ - c.minZ < 3f) continue;   // a desk, a crate, a column: a thing to run round, not a ceiling
             if (Mathf.Min(c.maxX - c.minX, c.maxZ - c.minZ) < 0.6f) continue;   // the end face of a plate stood on edge: not a ceiling
             if (at.x < c.minX - 0.3f || at.x > c.maxX + 0.3f || at.z < c.minZ - 0.3f || at.z > c.maxZ + 0.3f) continue;
@@ -745,14 +918,14 @@ public static class LevelValidator
     }
 
     /// The least headroom along a run across P from `from` to `to`, sampled every metre, and where it was
-    static float ClearanceAlong(Geometry g, Plat P, Vector3 from, Vector3 to, out Vector3 lowAt)
+    static float ClearanceAlong(Geometry g, Plat P, Vector3 from, Vector3 to, out Vector3 lowAt, Collider ignore = null)
     {
         float best = float.MaxValue; lowAt = to;
         int n = Mathf.Max(1, Mathf.CeilToInt(Flat(from, to)));
         for (int i = 0; i <= n; i++)
         {
             Vector3 p = Vector3.Lerp(from, to, (float)i / n);
-            float c = Clearance(g, P, p);
+            float c = Clearance(g, P, p, ignore);
             if (c < best) { best = c; lowAt = p; lowAt.y = P.YAt(p.x, p.z); }
         }
         return best;
@@ -844,6 +1017,15 @@ public static class LevelValidator
         var frame = LevelOverhead.Frame(r.bounds);
         sb.AppendLine("Plan frame: centre (" + frame.cx.ToString("0.00", Ci) + ", " + frame.cz.ToString("0.00", Ci) + "), " + frame.size.ToString("0.00", Ci) + " m across, 2048 px, north up: pixel x = (x - cx + size/2) / size * 2048, pixel y = (cz + size/2 - z) / size * 2048.");
         sb.AppendLine();
+        if (r.hidden.Count > 0)
+        {
+            sb.AppendLine("## Hidden routes");
+            sb.AppendLine();
+            sb.AppendLine("Timed over the whole segment, reset pad to reset pad (the recorder's segment time). The lit line is timed twice: as a RUN (run speed throughout, the slope ridden, every drop a fall) and KEPT (the beat's speed carried by hops). The high line is timed EXECUTED (its speed kept, slopes slid, a slope landing keeps the fall's share). Turns and misses are not modelled.");
+            sb.AppendLine();
+            foreach (var h in r.hidden) sb.AppendLine("- " + HiddenLine(h));
+            sb.AppendLine();
+        }
         sb.AppendLine("## Findings, worst first");
         sb.AppendLine();
         if (r.findings.Count == 0) sb.AppendLine("Nothing flagged on the main line.");
