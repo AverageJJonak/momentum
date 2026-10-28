@@ -32,7 +32,7 @@ public static class LevelValidator
     static readonly LevelKind[] AllLevels =
     {
         LevelKind.Tutorial, LevelKind.Level1, LevelKind.Level2, LevelKind.Level3, LevelKind.Level4, LevelKind.Level5, LevelKind.Level6,
-        LevelKind.Level7, LevelKind.Level8, LevelKind.Level9, LevelKind.Level10, LevelKind.Level11, LevelKind.Level12, LevelKind.Level13,
+        LevelKind.Level7, LevelKind.Level8, LevelKind.Level9, LevelKind.Level10, LevelKind.Level11, LevelKind.Level12, LevelKind.Level13, LevelKind.BeatGym,
     };
     static readonly float[] Speeds = { 8f, 10f, 12f, 14f, 16f, 18f, 20f, 24f };
     const float Margin = 0.5f;          // the landing's margin past the gap: the body's radius and a hair
@@ -62,6 +62,21 @@ public static class LevelValidator
         }
         finally { EditorUtility.ClearProgressBar(); }
         Debug.Log("LevelValidator: " + results.Count + " level(s) validated → " + OutDir + "/SUMMARY.md");
+    }
+
+    [MenuItem(Menu + "Validate The Beat Gym", false, 2)]
+    public static void ValidateGym()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode) { Debug.Log("LevelValidator: works outside Play Mode."); return; }
+        var config = AssetDatabase.LoadAssetAtPath<MovementConfig>(ConfigPath);
+        if (config == null) { Debug.LogError("LevelValidator: " + ConfigPath + " not found."); return; }
+        try
+        {
+            EditorUtility.DisplayProgressBar("Level Validator", "Building and reading the beat gym", 0.3f);
+            var r = Validate(LevelKind.BeatGym, config);
+            Debug.Log("LevelValidator: the gym → " + OutDir + "/BeatGym.md " + r.summaryLine);
+        }
+        finally { EditorUtility.ClearProgressBar(); }
     }
 
     [MenuItem(Menu + "Validate This Scene's Level", false, 1)]
@@ -283,6 +298,8 @@ public static class LevelValidator
                 var Q = g.plats[j];
                 float gap = RectGap(P, Q, out Vector3 a, out Vector3 b);
                 if (gap > ReachLimit) continue;
+                if (gap <= 0f && (P.slope >= 3f || Q.slope >= 3f)) LowEdgeJoin(P, Q, ref a, ref b);   // a ramp lying on a floor joins it at its foot, not at the overlap's middle
+                else if (gap <= 0f && Clearance(g, Q, b) < 1.0f) EdgeJoin(P, Q, ref a, ref b, ref gap);   // a floor running on under a deck joins at the deck's edge, not under it
                 float ya = P.YAt(a.x, a.z), yb = Q.YAt(b.x, b.z);
                 float dy = yb - ya;
                 if (dy > 2f || dy < -40f) continue;
@@ -294,30 +311,17 @@ public static class LevelValidator
                 else if (gap <= Touch && dy <= StepMax) { e.move = Move.Step; e.cost = 6f; }
                 else
                 {
+                    // the cheapest of the three ways over: a plain jump, a wall run and the jump off it, a double jump
                     float need = gap + Margin;
-                    int s = -1;
-                    for (int k = 0; k < Speeds.Length; k++) if (r.Plain(k, dy) >= need) { s = k; break; }
-                    if (s >= 0) { e.move = Move.Jump; e.speed = Speeds[s]; e.cost = Speeds[s]; e.trivial = r.Plain(0, dy) >= 1.5f * need; }
-                    else
-                    {
-                        for (int k = 0; k < Speeds.Length; k++) if (r.Double(k, dy) >= need) { s = k; break; }
-                        if (s >= 0) { e.move = Move.DoubleJump; e.speed = Speeds[s]; e.cost = Speeds[s] + 4f; }
-                        else
-                        {
-                            var w = WallAlong(g, a, b, ya);
-                            if (w == null) continue;
-                            int ws = -1;
-                            for (int k = 0; k < Speeds.Length; k++)
-                            {
-                                var run = LevelMetricsMath.Run(r.v, Speeds[k], 0f);
-                                var off = LevelMetricsMath.WallJump(r.v, Speeds[k], run.exitVy);
-                                float arc = LevelMetricsMath.Jump(r.v, off.h, off.vy, dy, false).distance;
-                                if (run.levelDistance + arc >= need) { ws = k; break; }
-                            }
-                            if (ws < 0) continue;
-                            e.move = Move.WallRun; e.speed = Speeds[ws]; e.cost = Speeds[ws] + 1f; e.wall = w;
-                        }
-                    }
+                    int js = -1, ws = -1, ds = -1; Wall wall = null;
+                    for (int k = 0; k < Speeds.Length; k++) if (r.Plain(k, dy) >= need) { js = k; break; }
+                    for (int k = 0; k < Speeds.Length; k++) { float carry = WallCarry(g, P, a, b, ya, Speeds[k], dy, r.v, out Wall last); if (carry >= need) { ws = k; wall = last; break; } }
+                    for (int k = 0; k < Speeds.Length; k++) if (r.Double(k, dy) >= need) { ds = k; break; }
+                    float jc = js >= 0 ? Speeds[js] : float.MaxValue, wc = ws >= 0 ? Speeds[ws] + 1f : float.MaxValue, dc = ds >= 0 ? Speeds[ds] + 4f : float.MaxValue;
+                    if (jc == float.MaxValue && wc == float.MaxValue && dc == float.MaxValue) continue;
+                    if (jc <= wc && jc <= dc) { e.move = Move.Jump; e.speed = Speeds[js]; e.cost = jc; e.trivial = dy > -2f && r.Plain(0, dy) >= 1.5f * need; }   // a drop onto a landing is a fall, not a trivial gap
+                    else if (wc <= dc) { e.move = Move.WallRun; e.speed = Speeds[ws]; e.cost = wc; e.wall = wall; }
+                    else { e.move = Move.DoubleJump; e.speed = Speeds[ds]; e.cost = dc; }
                 }
                 edges[i].Add(e);
             }
@@ -349,6 +353,79 @@ public static class LevelValidator
         }
         _ = ax; _ = az; _ = bx; _ = bz;
         return gap;
+    }
+
+    /// A ramp lying on a floor (their footprints overlap): the join is at the ramp's downhill edge. False when that edge is not over the floor
+    static bool LowEdgeJoin(Plat P, Plat Q, ref Vector3 a, ref Vector3 b)
+    {
+        Plat S = P.slope >= Q.slope ? P : Q, F = S == P ? Q : P;
+        Vector3 u = S.Uphill;
+        if (u == Vector3.zero) return false;
+        float extent = Mathf.Abs(u.x) * S.Width + Mathf.Abs(u.z) * S.Depth;
+        Vector3 low = S.Centre - u * (extent * 0.5f - 0.25f);
+        if (low.x < F.minX - 0.3f || low.x > F.maxX + 0.3f || low.z < F.minZ - 0.3f || low.z > F.maxZ + 0.3f) return false;
+        a = new Vector3(Mathf.Clamp(low.x, P.minX, P.maxX), 0f, Mathf.Clamp(low.z, P.minZ, P.maxZ));
+        b = new Vector3(Mathf.Clamp(low.x, Q.minX, Q.maxX), 0f, Mathf.Clamp(low.z, Q.minZ, Q.maxZ));
+        return true;
+    }
+
+    /// A floor that runs on under a deck: the join is at the deck's edge on the way to the other floor, a hair past it
+    static void EdgeJoin(Plat P, Plat Q, ref Vector3 a, ref Vector3 b, ref float gap)
+    {
+        Vector3 pc = P.Centre, qc = Q.Centre, d = qc - pc; d.y = 0f;
+        if (d.sqrMagnitude < 1e-3f) return;
+        d.Normalize();
+        float tx = d.x > 1e-4f ? (P.maxX - pc.x) / d.x : d.x < -1e-4f ? (P.minX - pc.x) / d.x : float.MaxValue;
+        float tz = d.z > 1e-4f ? (P.maxZ - pc.z) / d.z : d.z < -1e-4f ? (P.minZ - pc.z) / d.z : float.MaxValue;
+        Vector3 edge = pc + d * Mathf.Min(tx, tz);
+        a = new Vector3(edge.x, 0f, edge.z);
+        Vector3 beyond = edge + d * 0.6f;   // past the deck's own tolerance, so the landing is judged in the open
+        b = new Vector3(Mathf.Clamp(beyond.x, Q.minX, Q.maxX), 0f, Mathf.Clamp(beyond.z, Q.minZ, Q.maxZ));
+        gap = 0f;   // the floors touch: a step off the edge, not a jump
+    }
+
+    /// How far a wall run beside the line from a to b carries at `speed`, chains included: every wall parallel to the
+    /// line within reach of the floor it leaves, in order along it, each run level for what it has of the wall, a jump
+    /// to the next (walls up to seven metres apart chain), the jump off the last one to a landing `dy` away
+    static float WallCarry(Geometry g, Plat P, Vector3 a, Vector3 b, float floorY, float speed, float dy, LevelMetricsMath.Values v, out Wall last)
+    {
+        last = null;
+        Vector3 d = b - a; d.y = 0f;
+        float len = d.magnitude;
+        if (len < 1f) return 0f;
+        d /= len;
+        Vector3 side = new Vector3(-d.z, 0f, d.x);
+        float reach = 1.5f + 0.5f * (Mathf.Abs(d.x) >= Mathf.Abs(d.z) ? P.Depth : P.Width);
+        var walls = new List<(float s0, float s1, float lat, Wall w)>();
+        foreach (var w in g.walls)
+        {
+            if (Mathf.Abs(Vector3.Dot(w.u, d)) < 0.9f) continue;
+            float lat = Vector3.Dot(w.c - a, side);
+            if (Mathf.Abs(lat) > reach) continue;
+            if (w.bottom > floorY + 1.5f || w.top < floorY + 1.6f) continue;
+            float c = Vector3.Dot(w.c - a, d);
+            float s0 = c - w.halfLen, s1 = c + w.halfLen;
+            if (s1 < -1f || s0 > len + 1f) continue;
+            walls.Add((s0, s1, lat, w));
+        }
+        if (walls.Count == 0) return 0f;
+        walls.Sort((x, y) => x.s0.CompareTo(y.s0));
+        var run = LevelMetricsMath.Run(v, speed, 0f);
+        var off = LevelMetricsMath.WallJump(v, speed, 0f);
+        float hop = LevelMetricsMath.Jump(v, off.h, off.vy, 0f, false).distance;   // from one wall to the next, level
+        float first = LevelMetricsMath.Jump(v, speed, v.jumpImpulse, 0f, false).distance;   // from the floor to the first
+        float pos = 0f, lastLat = 0f;
+        bool any = false;
+        foreach (var (s0, s1, lat, w) in walls)
+        {
+            if (s0 > pos + (any ? hop : first)) break;
+            if (any && Mathf.Abs(lat - lastLat) > 7.5f) break;
+            float at = Mathf.Max(pos, s0);
+            pos = at + Mathf.Min(s1 - at, run.levelDistance);
+            lastLat = lat; last = w; any = true;
+        }
+        if (!any) return 0f;
+        return pos + LevelMetricsMath.Jump(v, off.h, off.vy, dy, false).distance;
     }
 
     /// A wall beside the line from a to b, parallel to it, standing from the floor to over head height
@@ -760,6 +837,8 @@ public static class LevelValidator
         sb.AppendLine();
         sb.AppendLine("**" + r.summaryLine + "**  ");
         sb.AppendLine("Platforms read: " + r.plats + ", walls: " + r.walls + ", pads: " + r.pads + ", checkpoints: " + r.checkpoints + ", flat walking on the line: " + r.flatMetres.ToString("0", Ci) + " m of " + r.routeLength.ToString("0", Ci) + " m.");
+        var frame = LevelOverhead.Frame(r.bounds);
+        sb.AppendLine("Plan frame: centre (" + frame.cx.ToString("0.00", Ci) + ", " + frame.cz.ToString("0.00", Ci) + "), " + frame.size.ToString("0.00", Ci) + " m across, 2048 px, north up: pixel x = (x - cx + size/2) / size * 2048, pixel y = (cz + size/2 - z) / size * 2048.");
         sb.AppendLine();
         sb.AppendLine("## Findings, worst first");
         sb.AppendLine();

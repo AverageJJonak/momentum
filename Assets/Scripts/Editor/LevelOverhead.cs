@@ -61,6 +61,8 @@ public static class LevelOverhead
     // ---------------------------------------------------------------- the framing
 
     static float Size(Bounds b) => Mathf.Max(b.size.x, b.size.z) * 1.08f + 10f;
+    /// The plan's world frame, for anything drawn onto it later (a recorded run): centre x, centre z, the width in metres of the whole image
+    public static (float cx, float cz, float size) Frame(Bounds b) => (b.center.x, b.center.z, Size(b));
     static Vector2 ToPixel(Bounds b, Vector3 p)
     {
         float s = Size(b);
