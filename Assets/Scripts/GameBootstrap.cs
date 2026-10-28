@@ -276,6 +276,11 @@ public class GameBootstrap : MonoBehaviour
         // Scene doors — walk through the glowing pane to travel
         switch (level)
         {
+            case LevelKind.BeatGym:
+                // THE GYM (Phase 3): a MENU door at the end of the row, another behind the start
+                if (LevelSections.Last != null) ScenePortal.Create(LevelSections.Last.finishPortal, new Vector3(3.2f, 4f, 1.2f), "MENU", "MainMenu", motor);
+                ScenePortal.Create(spawnPosition + new Vector3(0f, 2f, -5f), new Vector3(3.2f, 4f, 1.2f), "MENU", "MainMenu", motor);
+                break;
             case LevelKind.Tutorial:
                 ScenePortal.Create(TutorialLevelBuilder.MenuPortal, new Vector3(3.2f, 4f, 1.2f), "EXIT TUTORIAL", "PracticeRange", motor);
                 // Past graduation: back to the range, or on into the first chapter
