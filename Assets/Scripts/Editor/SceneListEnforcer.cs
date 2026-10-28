@@ -23,6 +23,7 @@ public static class SceneListEnforcer
         "Assets/Scenes/MainMenu.unity",
         "Assets/Scenes/PracticeRange.unity",
         "Assets/Scenes/Tutorial.unity",
+        "Assets/Scenes/BeatGym.unity",
     };
 
     static string[] Paths()

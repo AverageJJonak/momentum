@@ -28,6 +28,7 @@ public class MainMenuUI : MonoBehaviour
         ("NEW RUN", Act.NewRun, null),
         ("PROGRAMME", Act.Programme, null),
         ("PRACTICE RANGE", Act.Range, "PracticeRange"),
+        ("BEAT GYM", Act.Range, "BeatGym"),   // the beat library's test row (Phase 3, 2026-10-28): every beat three times, reset pads between; dev entry for now
         ("ORIENTATION", Act.Tutorial, "Tutorial"),
         ("SETTINGS", Act.Settings, null),
         ("QUIT", Act.Quit, null),
