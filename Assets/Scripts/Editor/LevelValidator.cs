@@ -79,6 +79,24 @@ public static class LevelValidator
         finally { EditorUtility.ClearProgressBar(); }
     }
 
+    /// The gym built with the safe wall and gate heights real levels use (not its 14 m look): the check that no wall lifts onto anything at those heights
+    [MenuItem(Menu + "Validate The Beat Gym With Plain Walls", false, 3)]
+    public static void ValidateGymPlainWalls()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode) { Debug.Log("LevelValidator: works outside Play Mode."); return; }
+        var config = AssetDatabase.LoadAssetAtPath<MovementConfig>(ConfigPath);
+        if (config == null) { Debug.LogError("LevelValidator: " + ConfigPath + " not found."); return; }
+        BeatGymBuilder.PlainWalls = true;
+        try
+        {
+            EditorUtility.DisplayProgressBar("Level Validator", "Building and reading the beat gym with plain walls", 0.3f);
+            var v = LevelMetrics.Read(config);
+            var r = Validate(LevelKind.BeatGym, config);
+            Debug.Log("LevelValidator: the gym WITH PLAIN WALLS (facades " + LevelMetricsMath.SafeWallHeight(v).ToString("0.0", Ci) + " m, gates " + LevelMetricsMath.SafeGateHeight(v).ToString("0.0", Ci) + " m) → " + r.summaryLine);
+        }
+        finally { BeatGymBuilder.PlainWalls = false; EditorUtility.ClearProgressBar(); }
+    }
+
     [MenuItem(Menu + "Validate This Scene's Level", false, 1)]
     public static void ValidateThis()
     {
