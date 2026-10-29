@@ -6,7 +6,7 @@ using UnityEngine;
 /// movement-freshness multiplier (distinct moves in a rolling window; repeats add
 /// nothing). Decays only while parked on flat ground. S+ triggers FLOW STATE:
 /// pips pinned full, with a grace period once style dips below S.
-/// Kills and hit penalties plug in here when combat arrives.
+/// Movement only (2026-10-29): there are no enemies, so kills and executes score nothing here.
 /// </summary>
 public class StyleSystem : MonoBehaviour
 {
@@ -113,21 +113,6 @@ public class StyleSystem : MonoBehaviour
     }
 
     void OnReset(string label, bool scores) { if (scores) AddPoints(config.styleResetPoints); }
-
-    readonly List<(KillMethod method, float time)> killWindow = new List<(KillMethod, float)>();
-    public float KillVarietyMultiplier { get; private set; } = 1f;
-
-    /// Kills score base points × kill-variety × freshness (spec §5.1):
-    /// mixing kill methods pays like mixing moves does.
-    public void RegisterKill(KillMethod method)
-    {
-        killWindow.RemoveAll(k => Time.time - k.time > config.killVarietyWindow);
-        killWindow.Add((method, Time.time));
-        var distinct = new HashSet<KillMethod>();
-        foreach (var k in killWindow) distinct.Add(k.method);
-        KillVarietyMultiplier = 1f + (distinct.Count - 1) * config.killVarietyPerMethod;
-        AddPoints(config.styleKillPoints * KillVarietyMultiplier);
-    }
 
     public void TakeHit() => Points = Mathf.Max(0f, Points - config.styleHitPenalty);
 

@@ -222,8 +222,6 @@ public partial class MovementConfig : ScriptableObject
     public float styleResetPoints = 30f;
     [Tooltip("The same MOVEMENT reset (slam storage, corner boost, edge boost, perfect slide-jump, the chain) scores nothing again inside this window — the pip still comes back. Combat resets are enemy-paced and always score")]
     public float styleResetRepeatWindow = 6f;
-    [Tooltip("Base points per kill (arrives with combat)")]
-    public float styleKillPoints = 50f;
     [Tooltip("Rolling window for movement freshness")]
     public float freshnessWindowSeconds = 6f;
     [Tooltip("Multiplier grows this much per distinct move in the window, from 1.0x")]
@@ -384,8 +382,6 @@ public partial class MovementConfig : ScriptableObject
     public float swordWhiffRecovery = 0.85f;
     [Tooltip("From the press, the arm is committed to the cut for this long (÷ swing speed): a parry pressed inside it has no guard to raise and is thrown away as a whiff, cooldown and all. Mashing both buttons is what this costs")]
     public float swordCommit = 0.28f;
-    [Tooltip("Extra style on a weakspot execute (also refunds a pip)")]
-    public float executeStyleBonus = 40f;
     public float executeHitstop = 0.12f;
     [Tooltip("Tiny freeze on a normal sword hit — the cut bites")]
     public float swordHitstop = 0.045f;
@@ -803,9 +799,6 @@ public partial class MovementConfig : ScriptableObject
     public float blastKnockback = 12f;
     public float chargeReturnSpeed = 22f;
 
-    [Tooltip("Distinct kill methods in this rolling window raise the kill multiplier")]
-    public float killVarietyWindow = 10f;
-    public float killVarietyPerMethod = 0.25f;
 
     [Header("Hidden tech — unexplained speed gains are rewarded, not patched")]
     [Tooltip("Horizontal speed gained in one tick beyond all known sources above this = discovered glitch tech")]
