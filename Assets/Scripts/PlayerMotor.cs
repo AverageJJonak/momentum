@@ -918,6 +918,7 @@ public class PlayerMotor : MonoBehaviour
             wallRunStartTime = Time.time;
             wallRunCollider = best.collider;
             if (velocity.y < -config.wallRunCatchSpeed) velocity.y = -config.wallRunCatchSpeed;
+            if (velocity.y > 0f) velocity.y = 0f;   // a run never keeps a jump's rise: jumped at, a 4 m wall lifted the body 6.5 m (LevelMetricsMath.WallLift); the user's pick, 2026-10-29
             velocity.y += config.wallRunEntryPop;
             airJumpsUsed = 0;
             airWallKicksUsed = 0; // a run is a fresh touch

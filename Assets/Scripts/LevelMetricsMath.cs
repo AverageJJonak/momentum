@@ -126,7 +126,7 @@ public static class LevelMetricsMath
     public static WallRun Run(Values v, float speed, float vyIn)
     {
         float dt = v.fixedDeltaTime, T = v.wallRunMaxDuration;
-        float vy = Math.Max(vyIn, -v.wallRunCatchSpeed) + v.wallRunEntryPop, y = 0f, x = 0f, t = 0f, level = -1f;
+        float vy = Math.Min(Math.Max(vyIn, -v.wallRunCatchSpeed), 0f) + v.wallRunEntryPop, y = 0f, x = 0f, t = 0f, level = -1f;   // since 2026-10-29 the motor drops a jump's rise on entry
         for (int i = 0; t < T && i < 20000; i++)
         {
             float life = Math.Min(1f, t / T);
@@ -155,18 +155,20 @@ public static class LevelMetricsMath
 
     public struct Lift { public float rise, tRise, exitVy, run, afterJump, afterDouble, afterKick; public bool toTop; }
 
-    /// THE LIFT (2026-10-29; the user: "wall running gives too much vertical momentum"). A wall run keeps whatever rise
-    /// it is entered with (the motor only catches a fall at -wallRunCatchSpeed) and adds the entry pop; gravity is
-    /// nearly off at first; the wall jump off it adds half of any rise still there to its own impulse; a wall touch
-    /// refunds the double jump. So a run entered with `vyIn` up (jumpImpulse when you jump at the wall, 0 running in
-    /// level, negative when it catches a fall) beside a wall whose top is `wallTopAbove` the attach height (the run
-    /// ends when the feet pass it; the jump off still comes within the coyote) — or under a `cornice` that high (the
-    /// head stops the rise there, as against any ceiling) — lifts: the run's rise to its best moment to jump, the
-    /// wall jump's apex over the attach height, the double jump after it (a pip), a wall kick off a second wall (a pip)
+    /// THE LIFT (2026-10-29; the user: "wall running gives too much vertical momentum"). A wall run used to keep
+    /// whatever rise it was entered with (the motor only caught a fall at -wallRunCatchSpeed): jumped at, a 4 m wall
+    /// lifted the body 6.5 m. Since the user's pick the same day the motor drops any rise on entry, so a run starts
+    /// from the entry pop at most; gravity is nearly off at first; the wall jump off it adds half of any rise still
+    /// there to its own impulse; a wall touch refunds the double jump. So a run entered with `vyIn` (clamped to zero
+    /// going up: jumping at the wall is the same as running in level; negative when it catches a fall) beside a wall
+    /// whose top is `wallTopAbove` the attach height (the run ends when the feet pass it; the jump off still comes
+    /// within the coyote) — or under a `cornice` that high (the head stops the rise there, as against any ceiling) —
+    /// lifts: the run's rise to its best moment to jump, the wall jump's apex over the attach height, the double jump
+    /// after it (a pip), a wall kick off a second wall (a pip)
     public static Lift WallLift(Values v, float vyIn, float wallTopAbove, float cornice = float.PositiveInfinity)
     {
         float dt = v.fixedDeltaTime, T = v.wallRunMaxDuration;
-        float vy = Math.Max(vyIn, -v.wallRunCatchSpeed) + v.wallRunEntryPop, y = 0f, t = 0f;
+        float vy = Math.Min(Math.Max(vyIn, -v.wallRunCatchSpeed), 0f) + v.wallRunEntryPop, y = 0f, t = 0f;   // the motor drops a jump's rise on entry (2026-10-29): a run starts from the pop at most
         float headroom = Math.Max(0f, cornice - v.capsuleHeight);
         var best = new Lift(); float bestApex = float.NegativeInfinity;
         void Consider()
@@ -198,6 +200,12 @@ public static class LevelMetricsMath
         }
         return best;
     }
+
+    /// The wall height a level is safe with: the lift of a run (the kick included) over an attach point as high as
+    /// a jump's apex, and half a metre; a wall this tall has no top a lift can reach. Gates stand taller by the
+    /// landing's drop (SafeGateHeight: three metres of drop allowed)
+    public static float SafeWallHeight(Values v) => (float)Math.Ceiling((WallLift(v, v.jumpImpulse, 1000f).afterKick + Height(v, v.jumpImpulse) + 0.5f) * 2f) / 2f;
+    public static float SafeGateHeight(Values v) => SafeWallHeight(v) + 3.5f;
 
     // ---------------------------------------------------------------- the ground
 

@@ -17,6 +17,9 @@ using UnityEngine;
 public static class BeatGymBuilder
 {
     const float BaseY = 40f, HalfW = 5f, PadHalfW = 2.5f, SlopeDeg = 12f, GroundBelow = 220f;   // the row descends about 170 m; the ground stays under the kill floor
+    const float FacadeLook = 14f, GateLook = 15f;
+    /// The validator's check: build the gym with the safe wall heights real levels use, not the 14 m look (LevelValidator.ValidateGymPlainWalls)
+    public static bool PlainWalls;
 
     public static Vector3 Build(MovementConfig config)
     {
@@ -26,6 +29,7 @@ public static class BeatGymBuilder
         var root = new GameObject("BeatGym").transform;
         var v = LevelMetrics.Read(config);
         var f = new Frame(root, v, new Pose(new Vector3(0f, BaseY, 0f), 0f, 0f)) { groundY = BaseY - GroundBelow };
+        if (!PlainWalls) { f.facadeHeight = FacadeLook; f.gateHeight = GateLook; }   // the gym's look (the user, 2026-10-29): taller than the safe heights real levels need
         f.Ground();   // THE CITY FLOOR far below: every deck is a rooftop on its building, every stone a pillar, every wall a facade (2026-10-29: "no floating platforms")
 
         // the start: a floor, the first checkpoint, the gym's sign
@@ -87,7 +91,7 @@ public static class BeatGymBuilder
     {
         f.Deck(0f, 5f, 0f, HalfW, "After"); f.Line(0f, 0.5f, 4.5f, 0f);
         f.Deck(5f, 17f, 0f, HalfW, "SettleCorner"); f.Line(0f, 5.5f, 15f, 0f);
-        f.Mass(side > 0f ? 1f : -9f, side > 0f ? 9f : -1f, -0.5f, Frame.FacadeHeight, 5f, 13f, "SettleBlock");   // rooftop machinery, as tall as a facade: a run up its face finds no top (the lift reaches eleven metres)
+        f.Mass(side > 0f ? 1f : -9f, side > 0f ? 9f : -1f, -0.5f, f.facadeHeight, 5f, 13f, "SettleBlock");   // rooftop machinery, as tall as a facade: a run up its face finds no top (the lift reaches eleven metres)
         f.Lamp(0f, 5f, 15f);
         f.Advance(15f, 0f);
         f.Turn(side * 90f);

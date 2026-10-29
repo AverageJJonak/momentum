@@ -111,8 +111,8 @@ public class SlideTunnel : Beat
             f.Slope(2f, 0.5f + clear, 3f + dz, 0.5f + clear - drop, 0.75f, "TunnelSide", side * (HalfW + 0.75f), clear + 2f);
         if (f.Structural)   // the building the tunnel runs through: a pitched mass over the roof, as tall as a facade, its underside a hair into the roof (a pitched box's vertical depth is its thickness over the cosine)
         {
-            float vert = Frame.FacadeHeight / BeatMath.Cos(deg) - 0.01f;
-            f.Slope(2f, 0.18f + clear + 1f + vert, 3f + dz, -drop + 0.18f + clear + 1f + vert, HalfW + 1.5f, "Facade", 0f, Frame.FacadeHeight, LevelKit.Dark);
+            float vert = f.facadeHeight / BeatMath.Cos(deg) - 0.01f;
+            f.Slope(2f, 0.18f + clear + 1f + vert, 3f + dz, -drop + 0.18f + clear + 1f + vert, HalfW + 1.5f, "Facade", 0f, f.facadeHeight, LevelKit.Dark);
         }
         f.Line(0f, 3.5f, 3f + dz - 0.5f, -drop * 0.5f);
         f.Advance(3f + dz, -drop);
@@ -181,7 +181,7 @@ public class Fork : Beat
         const float first = 4f, stone = 3f, lane = 2.75f, off = 4.25f;
         float len = first + n * (gap + stone) + gap;   // the last gap lands on the rejoin
         f.Deck(0f, 4f, 0f, HalfW, "ForkMouth");
-        f.Mass(-1.5f, 1.5f, f.Structural ? f.groundY : -1f, f.Structural ? Frame.FacadeHeight : 4f, 4f, 4f + len, "Divider");   // a building between the two ways, too tall for a run to top
+        f.Mass(-1.5f, 1.5f, f.Structural ? f.groundY : -1f, f.Structural ? f.facadeHeight : 4f, 4f, 4f + len, "Divider");   // a building between the two ways, too tall for a run to top
         // the risky right side: a floor, then stones, each a metre lower, the rejoin a metre lower still
         float z = 4f, y = 0f;
         f.Deck(z, z + first, y, lane, "RiskyFloor", off);

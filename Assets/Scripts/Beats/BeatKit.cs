@@ -30,13 +30,18 @@ public class Frame
     /// at, a run and its jumps reach eleven metres). NaN: the old bare slabs
     public float groundY = float.NaN;
     public bool Structural => !float.IsNaN(groundY);
-    public const float Reveal = 0.3f, FacadeHeight = 14f, GateHeight = 15f;   // the lift reaches 11.4 m; a facade or a gate may stand up to three metres below the floor a run is lifted from
+    public const float Reveal = 0.3f;
+    /// How tall a run wall (a facade) and a portal (a gate) stand: by default the heights the metrics call safe (a
+    /// lift's reach over a jump's apex, and half a metre; a gate stands taller by three metres of landing drop), so
+    /// nothing a wall run can lift the body onto has a top. A level may ask for more as a look: the gym stands 14 m
+    public float facadeHeight, gateHeight;
 
     public Frame(Transform root, LevelMetricsMath.Values v, Pose at)
     {
         this.root = root; this.v = v; origin = at.pos; yaw = at.yaw;
         lowest = highest = at.pos.y;
         built = new Bounds(at.pos, Vector3.one);
+        facadeHeight = LevelMetricsMath.SafeWallHeight(v); gateHeight = LevelMetricsMath.SafeGateHeight(v);
     }
 
     public Quaternion Rot => Quaternion.Euler(0f, yaw, 0f);
@@ -50,7 +55,7 @@ public class Frame
     /// The heading turns right by `deg` (negative: left), about the origin
     public void Turn(float deg) => yaw += deg;
     /// A frame standing at `at` in this frame, turned `deg` right: a leg off the line
-    public Frame Sub(float x, float y, float z, float deg) => new Frame(root, v, new Pose(P(x, y, z), yaw + deg, 0f)) { zone = zone, lowest = lowest, highest = highest, built = built, groundY = groundY };
+    public Frame Sub(float x, float y, float z, float deg) => new Frame(root, v, new Pose(P(x, y, z), yaw + deg, 0f)) { zone = zone, lowest = lowest, highest = highest, built = built, groundY = groundY, facadeHeight = facadeHeight, gateHeight = gateHeight };
     public void Note(Vector3 p) { lowest = Mathf.Min(lowest, p.y); highest = Mathf.Max(highest, p.y); built.Encapsulate(p); }
 
     // ---------------------------------------------------------------- the solid pieces
@@ -119,7 +124,7 @@ public class Frame
     /// ground it is a FACADE: twelve metres tall at least (nothing a run's lift can reach has a top) on a building below
     public GameObject Wall(float x, float z0, float z1, float yBottom, float height, string name = "KickWall")
     {
-        float h = Structural ? Mathf.Max(height, FacadeHeight) : height;
+        float h = Structural ? Mathf.Max(height, facadeHeight) : height;
         var band = Box(P(x, yBottom + h * 0.5f, (z0 + z1) * 0.5f), new Vector3(1f, h, z1 - z0), LevelKit.Wall, name, Rot);
         Body(x - 0.5f, x + 0.5f, yBottom - 0.05f, z0, z1, "FacadeBody");
         return band;
@@ -138,7 +143,7 @@ public class Frame
     public void Portal(float z, float y, float halfW, float clear = 2.2f, float top = 5.5f, bool leftPost = true, bool rightPost = true, float x = 0f)
     {
         const float d = 0.45f;
-        if (Structural) top = Mathf.Max(top, GateHeight);   // a gate: nothing an arc or a lift passes over
+        if (Structural) top = Mathf.Max(top, gateHeight);   // a gate: nothing an arc or a lift passes over
         float foot = Structural ? groundY : y - 1f;
         float x0 = x - halfW - (leftPost ? 0.7f : 0.1f), x1 = x + halfW + (rightPost ? 0.7f : 0.1f);
         Mass(leftPost ? x - halfW - 0.1f : x0, rightPost ? x + halfW + 0.1f : x1, y + clear, y + top, z - d, z + d, "Lintel");
