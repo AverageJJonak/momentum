@@ -85,12 +85,44 @@ public class Frame
     public GameObject WallAcross(float x0, float x1, float z, float yBottom, float height, string name = "Wall")
         => Box(P((x0 + x1) * 0.5f, yBottom + height * 0.5f, z), new Vector3(x1 - x0, height, 1f), LevelKit.Wall, name, Rot);
 
+    /// A PORTAL across the line at `z` (2026-10-29; the user: "landing spots that punish overshooting"): a lintel whose
+    /// underside is `clear` metres over the floor at `y`, solid up to `top`, a post each side just outside the deck. A
+    /// run or a slide passes under it; an arc still in the air here hits the lintel and stops. So a short landing with a
+    /// portal at its end takes every speed up to the one whose arc is still up at the lintel, and no more. Portals every
+    /// eight metres along a floor (a colonnade) cap a hop chain at about 11 m/s: a longer hop meets the next lintel. The
+    /// pieces are 0.9 m thick so the validator reads the lintel as a ceiling and the posts as nothing (not as walls to run)
+    public void Portal(float z, float y, float halfW, float clear = 2.2f, float top = 5.5f, bool leftPost = true, bool rightPost = true, float x = 0f)
+    {
+        const float d = 0.45f;
+        float x0 = x - halfW - (leftPost ? 0.7f : 0.1f), x1 = x + halfW + (rightPost ? 0.7f : 0.1f);
+        Mass(leftPost ? x - halfW - 0.1f : x0, rightPost ? x + halfW + 0.1f : x1, y + clear, y + top, z - d, z + d, "Lintel");
+        if (leftPost) Mass(x0, x - halfW - 0.1f, y - 1f, y + top, z - d, z + d, "Post");
+        if (rightPost) Mass(x + halfW + 0.1f, x1, y - 1f, y + top, z - d, z + d, "Post");
+    }
+
+    /// A HOP STONE: a floor `wide` across and `deep` along the line, centred at (x, z), its top at y. Its depth is the
+    /// landing's tolerance: the arc the stone is spaced for lands sixty percent of the way across it
+    public GameObject Stone(float x, float z, float y, float wide, float deep, string name = "ControlStone")
+        => Deck(z - deep * 0.5f, z + deep * 0.5f, y, wide * 0.5f, name, x);
+
+    /// A BEAM: a floor `wide` across, from (x0, z0) to (x1, z1) along the frame's x or z (the other equal), its top at y;
+    /// it ends exactly at its ends, so a pad it meets is touched and not overlapped
+    public GameObject Beam(float x0, float z0, float x1, float z1, float y, float wide, string name = "ControlBeam")
+    {
+        float hw = wide * 0.5f;
+        return Mathf.Abs(z1 - z0) >= Mathf.Abs(x1 - x0)
+            ? Mass(x0 - hw, x0 + hw, y - 1f, y, Mathf.Min(z0, z1), Mathf.Max(z0, z1), name, LevelKit.Floor)
+            : Mass(Mathf.Min(x0, x1), Mathf.Max(x0, x1), y - 1f, y, z0 - hw, z0 + hw, name, LevelKit.Floor);
+    }
+
     // ---------------------------------------------------------------- the marks
 
     /// The lit line down a floor (HARD LINE): where the run goes
     public void Line(float x, float z0, float z1, float y) => LevelKit.LineRun(root, P(x, y, z0), P(x, y, z1), zone);
     /// The lit line down a slope: from (z0, y0) to (z1, y1)
     public void LineRun(float x, float z0, float y0, float z1, float y1) => LevelKit.LineRun(root, P(x, y0, z0), P(x, y1, z1), zone);
+    /// The lit line between two points of the floor at `y`: across the frame as well as along it
+    public void LineBetween(float x0, float z0, float x1, float z1, float y) => LevelKit.LineRun(root, P(x0, y, z0), P(x1, y, z1), zone);
 
     /// A sign over the line, read by whoever comes along it
     /// A sign over the line, read from the reset pad ten metres back: `size` 1 = 40 cm glyphs (LevelKit.Text's size is
