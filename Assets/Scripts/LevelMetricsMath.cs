@@ -153,6 +153,52 @@ public static class LevelMetricsMath
         return ((float)Math.Sqrt(along * along + away * away), v.wallKickUpImpulse);
     }
 
+    public struct Lift { public float rise, tRise, exitVy, run, afterJump, afterDouble, afterKick; public bool toTop; }
+
+    /// THE LIFT (2026-10-29; the user: "wall running gives too much vertical momentum"). A wall run keeps whatever rise
+    /// it is entered with (the motor only catches a fall at -wallRunCatchSpeed) and adds the entry pop; gravity is
+    /// nearly off at first; the wall jump off it adds half of any rise still there to its own impulse; a wall touch
+    /// refunds the double jump. So a run entered with `vyIn` up (jumpImpulse when you jump at the wall, 0 running in
+    /// level, negative when it catches a fall) beside a wall whose top is `wallTopAbove` the attach height (the run
+    /// ends when the feet pass it; the jump off still comes within the coyote) — or under a `cornice` that high (the
+    /// head stops the rise there, as against any ceiling) — lifts: the run's rise to its best moment to jump, the
+    /// wall jump's apex over the attach height, the double jump after it (a pip), a wall kick off a second wall (a pip)
+    public static Lift WallLift(Values v, float vyIn, float wallTopAbove, float cornice = float.PositiveInfinity)
+    {
+        float dt = v.fixedDeltaTime, T = v.wallRunMaxDuration;
+        float vy = Math.Max(vyIn, -v.wallRunCatchSpeed) + v.wallRunEntryPop, y = 0f, t = 0f;
+        float headroom = Math.Max(0f, cornice - v.capsuleHeight);
+        var best = new Lift(); float bestApex = float.NegativeInfinity;
+        void Consider()
+        {
+            float up = Math.Max(vy, 0f) * 0.5f + v.wallRunJumpUpImpulse;
+            float apex = y + up * up / (2f * v.gravity);
+            if (apex > bestApex) { bestApex = apex; best.rise = y; best.tRise = t; best.exitVy = vy; best.afterJump = apex; }
+        }
+        Consider();
+        for (int i = 0; t < T && i < 20000; i++)
+        {
+            float life = Math.Min(1f, t / T);
+            float g = v.gravity * Lerp(v.wallRunGravityFactor, 1f, life * life);
+            vy -= g * dt;
+            float ny = y + vy * dt;
+            if (ny > headroom) { ny = headroom; vy = Math.Min(vy, 0f); }
+            y = ny; t += dt;
+            if (y > wallTopAbove) { best.toTop = true; break; }
+            Consider();
+        }
+        best.run = t;
+        best.afterDouble = best.afterJump + v.doubleJumpImpulse * v.doubleJumpImpulse / (2f * v.gravity);
+        best.afterKick = best.afterDouble + v.wallKickUpImpulse * v.wallKickUpImpulse / (2f * v.gravity);
+        if (!float.IsPositiveInfinity(cornice))   // a ceiling over the run is over the jumps too: the head stops every rise at it
+        {
+            best.afterJump = Math.Min(best.afterJump, headroom);
+            best.afterDouble = Math.Min(best.afterDouble, headroom);
+            best.afterKick = Math.Min(best.afterKick, headroom);
+        }
+        return best;
+    }
+
     // ---------------------------------------------------------------- the ground
 
     /// A flat slide from `speed`: the bleed is exponential at slideFriction, the slide ends at slideEndSpeed.
@@ -254,6 +300,25 @@ public static class LevelMetricsMath
         }
         var r8 = Run(v, v.baseRunSpeed, 0f);
         sb.AppendLine("A full run drops " + F(r8.drop) + " m whatever the speed; the first " + F(r8.levelDistance / v.baseRunSpeed, "0.00") + " s stay level. The wall jump's arc then lasts " + F(2f * v.wallRunJumpUpImpulse / v.gravity, "0.00") + " s (" + F(Height(v, v.wallRunJumpUpImpulse), "0.00") + " m up). Staggered walls want a gap of about " + F(2f * v.wallRunJumpUpImpulse / v.gravity * 0.8f * v.baseRunSpeed) + "–" + F(2f * v.wallRunJumpUpImpulse / v.gravity * 0.9f * 14f) + " m between faces at 8–14 m/s.");
+        sb.AppendLine();
+
+        // 3b. the lift
+        sb.AppendLine("3b. THE LIFT: what a wall run gives in HEIGHT, by how it is entered and how tall the wall is (metres over the point where the body meets the wall; speed does not change the height, only how far along the wall it happens). 'jump' = the run's best jump off it, 'pip' = a double jump after that, 'kick' = a wall kick off a second wall after that. The run keeps the rise it is entered with and adds the pop of " + F(v.wallRunEntryPop) + " m/s; the wall jump adds half of any rise left to its " + F(v.wallRunJumpUpImpulse) + ".");
+        sb.AppendLine("| entered | wall 3 m | wall 4 m | wall 5 m | wall 6 m | wall 8 m | no top | under a 3 m cornice | ");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|");
+        foreach (var (name, vyIn) in new[] { ("jumping at it (" + F(v.jumpImpulse) + " up)", v.jumpImpulse), ("half a jump up (" + F(v.jumpImpulse * 0.5f) + ")", v.jumpImpulse * 0.5f), ("level (0)", 0f), ("falling (-3)", -3f) })
+        {
+            sb.Append("| " + name + " |");
+            foreach (float top in new[] { 3f, 4f, 5f, 6f, 8f, 1000f })
+            {
+                var l = WallLift(v, vyIn, top);
+                sb.Append(" rise " + F(l.rise) + " in " + F(l.tRise, "0.00") + " s → jump " + F(l.afterJump) + ", pip " + F(l.afterDouble) + ", kick " + F(l.afterKick) + " |");
+            }
+            var c = WallLift(v, vyIn, 1000f, 3f);
+            sb.AppendLine(" rise " + F(c.rise) + " → jump " + F(c.afterJump) + ", pip " + F(c.afterDouble) + ", kick " + F(c.afterKick) + " |");
+        }
+        var lj = WallLift(v, v.jumpImpulse, 1000f);
+        sb.AppendLine("Along the wall, the best jump off a run entered jumping comes " + F(lj.tRise, "0.00") + " s in: " + F(lj.tRise * 8f) + " m at 8 m/s, " + F(lj.tRise * 12f) + " m at 12, " + F(lj.tRise * 16f) + " m at 16. A wall's top is reached " + F(WallLift(v, v.jumpImpulse, 4f).run, "0.00") + " s in when it is 4 m up. A cornice 3 m over the floor holds the feet to " + F(3f - v.capsuleHeight) + " m.");
         sb.AppendLine();
 
         // 4. slides and slopes

@@ -109,6 +109,11 @@ public class SlideTunnel : Beat
         f.Roof(2f, 0f + 0.18f, 3f + dz, -drop + 0.18f, clear, HalfW + 1.5f, "TunnelRoof");
         for (int side = -1; side <= 1; side += 2)
             f.Slope(2f, 0.5f + clear, 3f + dz, 0.5f + clear - drop, 0.75f, "TunnelSide", side * (HalfW + 0.75f), clear + 2f);
+        if (f.Structural)   // the building the tunnel runs through: a pitched mass over the roof, as tall as a facade, its underside a hair into the roof (a pitched box's vertical depth is its thickness over the cosine)
+        {
+            float vert = Frame.FacadeHeight / BeatMath.Cos(deg) - 0.01f;
+            f.Slope(2f, 0.18f + clear + 1f + vert, 3f + dz, -drop + 0.18f + clear + 1f + vert, HalfW + 1.5f, "Facade", 0f, Frame.FacadeHeight, LevelKit.Dark);
+        }
         f.Line(0f, 3.5f, 3f + dz - 0.5f, -drop * 0.5f);
         f.Advance(3f + dz, -drop);
         return BeatMath.SlideGain(f.v, s, deg, len);
@@ -176,7 +181,7 @@ public class Fork : Beat
         const float first = 4f, stone = 3f, lane = 2.75f, off = 4.25f;
         float len = first + n * (gap + stone) + gap;   // the last gap lands on the rejoin
         f.Deck(0f, 4f, 0f, HalfW, "ForkMouth");
-        f.Mass(-1.5f, 1.5f, -1f, 4f, 4f, 4f + len, "Divider");
+        f.Mass(-1.5f, 1.5f, f.Structural ? f.groundY : -1f, f.Structural ? Frame.FacadeHeight : 4f, 4f, 4f + len, "Divider");   // a building between the two ways, too tall for a run to top
         // the risky right side: a floor, then stones, each a metre lower, the rejoin a metre lower still
         float z = 4f, y = 0f;
         f.Deck(z, z + first, y, lane, "RiskyFloor", off);
@@ -215,9 +220,9 @@ public class Skip : Beat
         f.Deck(4f + gap, 4f + gap + land, -1f, HalfW, "Landing"); f.Line(0f, 4.5f + gap, 3.5f + gap + land, -1f);
         f.Portal(4f + gap + land, -1f, HalfW, 2.2f, 5.5f, true, false);
         // the long way: a floor out to the right from the launch, a slope forward and down beside the gap, a floor back in to the landing
-        f.Mass(HalfW - 0.2f, outX + laneW, -1f, 0f, 1f, 4f, "WayOut", LevelKit.Floor);
+        f.Mass(HalfW - 0.2f, outX + laneW, -1f, 0f, 1f, 4f, "WayOut", LevelKit.Floor); f.Body(HalfW - 0.2f, outX + laneW, -1.05f, 1f, 4f, "WayOutBody");
         f.Slope(4f, 0f, 6f + gap, -1f, laneW, "WayAlong", outX);
-        f.Mass(HalfW - 0.2f, outX + laneW, -2f, -1f, 6f + gap, 8.5f + gap, "WayBack", LevelKit.Floor);   // ends half a metre short of the landing's end, so the long way comes back onto the landing and not past it
+        f.Mass(HalfW - 0.2f, outX + laneW, -2f, -1f, 6f + gap, 8.5f + gap, "WayBack", LevelKit.Floor); f.Body(HalfW - 0.2f, outX + laneW, -2.05f, 6f + gap, 8.5f + gap, "WayBackBody");   // ends half a metre short of the landing's end, so the long way comes back onto the landing and not past it
         f.Advance(4f + gap + land, -1f);
         return s;
     }
@@ -250,7 +255,8 @@ public class TechCheck : Beat
         {
             float gap = BeatMath.SlideJumpReach(f.v, s, -0.5f) * 0.8f, land = 5f;
             f.Deck(0f, 4f, 0f, HalfW, "Launch"); f.Line(0f, 0.5f, 3.5f, 0f);
-            f.Mass(-HalfW - 1f, HalfW + 1f, 1.25f, 2.25f, 0.5f, 3f, "Bar");
+            if (f.Structural) f.Portal(1.75f, 0f, HalfW, 1.25f, 2.25f);   // a gate with a slot: the bar is its lintel, and nothing stands on it
+            else f.Mass(-HalfW - 1f, HalfW + 1f, 1.25f, 2.25f, 0.5f, 3f, "Bar");
             f.Deck(4f + gap, 4f + gap + land, -0.5f, HalfW, "Landing"); f.Line(0f, 4.5f + gap, 3.5f + gap + land, -0.5f);
             f.Portal(4f + gap + land, -0.5f, HalfW);
             f.Advance(4f + gap + land, -0.5f);
@@ -282,6 +288,13 @@ public class TechCheck : Beat
 public class HiddenRoute : Beat
 {
     public override string Name => "HIDDEN ROUTE";
+    const float LaneX = -5.1f, LaneHalf = 1.3f;
+    /// The bar across the high line's lane, centred at `z`: a slide or a stop. With a ground it is a gate off the facade, nothing to stand on
+    static void HiddenBar(Frame f, float z)
+    {
+        if (f.Structural) f.Portal(z, 0f, LaneHalf + 0.3f, 1.25f, 2.25f, false, true, LaneX);
+        else f.Mass(LaneX - 1.6f, LaneX + 1.6f, 1.25f, 2.25f, z - 1.75f, z + 1.75f, "HiddenBar");
+    }
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, 10f, 12f, 14f);
     public override string Note(LevelMetricsMath.Values v, int d) => "the lit line goes down · a HIGH LINE on the left: " + (d <= 1 ? "wall run, jump, drop" : d == 2 ? "wall run, SLIDE the bar, slide-jump, hop the stones, drop" : "wall run, wall run, slide the bar, slide-jump, the chute");
     public override float Build(Frame f, int d)
@@ -292,10 +305,11 @@ public class HiddenRoute : Beat
         float carry = BeatMath.WallRunCarry(f.v, s, 0f) * 0.85f;        // the wall run and the jump off it, to a ledge at the same height
         float dropDz = h / Mathf.Tan(dropDeg * Mathf.Deg2Rad);
 
-        // the lit line: the approach, three steps down (the low floor runs on to the rejoin, laid after the high line's length is known)
+        // the lit line: the approach, three steps down (the low floor runs on to the rejoin, laid after the high line's length is known).
+        // The steps keep clear of the facade (the lane under the high line is void there), so the run up the facade can only be entered from the approach
         f.Deck(0f, 6f, 0f, wide, "Approach"); f.Line(0f, 0.5f, 5.5f, 0f);
-        f.Deck(6f, 10f, -h / 3f, wide, "MainStep"); f.Line(0f, 6.5f, 9.5f, -h / 3f);
-        f.Deck(10f, 14f, -2f * h / 3f, wide, "MainStep"); f.Line(0f, 10.5f, 13.5f, -2f * h / 3f);
+        f.Deck(6f, 10f, -h / 3f, HalfW, "MainStep", 1.5f); f.Line(0f, 6.5f, 9.5f, -h / 3f);
+        f.Deck(10f, 14f, -2f * h / 3f, HalfW, "MainStep", 1.5f); f.Line(0f, 10.5f, 13.5f, -2f * h / 3f);
 
         // the high line: the wall off the approach's left edge, the first ledge where the run's jump lands
         f.Wall(wallX, 4f, 6f + carry - 0.5f, -1f, wallH);
@@ -310,7 +324,7 @@ public class HiddenRoute : Beat
         else if (d == 2)
         {
             f.Deck(z, z + 10f, 0f, laneHalf, "HiddenLedge", laneX);
-            f.Mass(laneX - 1.6f, laneX + 1.6f, 1.25f, 2.25f, z + 6.5f, z + 10f, "HiddenBar");   // a slide, or a stop
+            HiddenBar(f, z + 8.25f);   // a slide, or a stop
             z += 10f;
             z += BeatMath.SlideJumpReach(f.v, s, 0f) * 0.8f;
             float period = BeatMath.Reach(f.v, s, 0f), stone = 3.5f;   // a stone every clean arc at this speed: land, hop inside the grace, land
@@ -323,7 +337,7 @@ public class HiddenRoute : Beat
             f.Wall(wallX, z - 1.5f, z - 1.5f + carry - 1f, -1f, wallH);   // the second wall begins before the ledge ends: run straight off onto it
             z += carry;
             f.Deck(z, z + 10f, 0f, laneHalf, "HiddenLedge", laneX);
-            f.Mass(laneX - 1.6f, laneX + 1.6f, 1.25f, 2.25f, z + 6.5f, z + 10f, "HiddenBar");
+            HiddenBar(f, z + 8.25f);
             z += 10f;
             z += BeatMath.SlideJumpReach(f.v, s, 0f) * 0.8f;
         }
@@ -373,7 +387,7 @@ public class Turn : Beat
         {
             f.Deck(0f, 10f, 0f, HalfW, "Leg"); f.Line(0f, 0.5f, 9.5f, 0f);
             f.Wall(-(HalfW + 0.6f), 4f, 15f, 0.3f, 4f);
-            f.Mass(2f, 16f, -2.5f, -1.5f, 7f, 17f, "NewLeg", LevelKit.Floor);   // the exit floor, a metre and a half down, out to the right
+            f.Mass(2f, 16f, -2.5f, -1.5f, 7f, 17f, "NewLeg", LevelKit.Floor); f.Body(2f, 16f, -2.55f, 7f, 17f, "NewLegBody");   // the exit floor, a metre and a half down, out to the right
             var g = f.Sub(16f, -1.5f, 12f, 90f);
             f.origin = g.origin; f.Turn(90f);
             return 10f;

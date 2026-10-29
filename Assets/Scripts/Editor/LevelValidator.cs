@@ -147,7 +147,7 @@ public static class LevelValidator
         public float minX, maxX, minZ, maxZ;   // the top face's footprint
         public Vector3 c, n;                   // a point on the top plane and its normal
         public float slope;                    // degrees
-        public bool lip, pad, kick;
+        public bool lip, pad, kick, lift;   // lift: a top a wall run's lift can put the player on (a wall's own top, a block, a lintel) that is no floor of any line
         public float YAt(float x, float z) => c.y - (n.x * (x - c.x) + n.z * (z - c.z)) / Mathf.Max(0.2f, n.y);
         public float Width => maxX - minX;
         public float Depth => maxZ - minZ;
@@ -195,8 +195,8 @@ public static class LevelValidator
                         Vector3 e1 = axes[b1] * ext[b1], e2 = axes[b2] * ext[b2];
                         if (nf.y >= 0.707f)
                         {
-                            if (name == "Lintel" || name == "Post" || name == "SettleBlock") continue;   // the top of a portal or a corner block is not a floor of any line
-                            var p = new Plat { id = g.plats.Count, name = name, col = col, c = fc, n = nf, slope = Vector3.Angle(nf, Vector3.up), lip = lip, pad = pad, kick = kick };
+                            bool lift = name == "Lintel" || name == "Post" || name == "SettleBlock" || name == "KickWall" || name == "Divider" || name == "Cornice" || name == "Facade" || name == "Machinery" || name.EndsWith("Body");   // the top of a portal, a block, a wall, a cornice: not a floor of any line, but a wall run's lift can reach it (a body's top is inside its building: nothing)
+                            var p = new Plat { id = g.plats.Count, name = name, col = col, c = fc, n = nf, slope = Vector3.Angle(nf, Vector3.up), lip = lip, pad = pad, kick = kick, lift = lift };
                             Footprint(fc, e1, e2, out p.minX, out p.maxX, out p.minZ, out p.maxZ);
                             if (p.Width < 0.3f || p.Depth < 0.3f) continue;
                             g.plats.Add(p);
@@ -299,7 +299,7 @@ public static class LevelValidator
             var P = g.plats[i];
             for (int j = 0; j < n; j++)
             {
-                if (i == j) continue;
+                if (i == j || P.lift || g.plats[j].lift) continue;
                 var Q = g.plats[j];
                 float gap = RectGap(P, Q, out Vector3 a, out Vector3 b);
                 if (gap > ReachLimit) continue;
@@ -483,7 +483,7 @@ public static class LevelValidator
             float horiz = Mathf.Sqrt(dx * dx + dz * dz);
             float y = P.YAt(Mathf.Clamp(p.x, P.minX, P.maxX), Mathf.Clamp(p.z, P.minZ, P.maxZ));
             float below = p.y - y;
-            if (horiz > 6f || below < -0.6f || below > 4f) continue;
+            if (P.lift || horiz > 6f || below < -0.6f || below > 4f) continue;
             float score = horiz * 3f + below;
             if (score < bestScore) { bestScore = score; best = i; }
         }
@@ -909,7 +909,7 @@ public static class LevelValidator
         float bx0 = Mathf.Min(e.a.x, far.x) - 0.5f, bx1 = Mathf.Max(e.a.x, far.x) + 0.5f, bz0 = Mathf.Min(e.a.z, far.z) - 0.5f, bz1 = Mathf.Max(e.a.z, far.z) + 0.5f;
         var near = new List<Plat>();
         foreach (var cand in g.plats)
-            if (cand != P && cand.col != P.col && cand.maxX >= bx0 && cand.minX <= bx1 && cand.maxZ >= bz0 && cand.minZ <= bz1) near.Add(cand);
+            if (cand != P && !cand.lift && cand.col != P.col && cand.maxX >= bx0 && cand.minX <= bx1 && cand.maxZ >= bz0 && cand.minZ <= bz1) near.Add(cand);
         var prevIn = new bool[near.Count]; var prevAbove = new bool[near.Count];
         Plat T = null; float RT = 0f;
         const float Step = 0.25f;
@@ -1093,6 +1093,92 @@ public static class LevelValidator
         return sc;
     }
 
+    // ---------------------------------------------------------------- the lift (2026-10-29)
+
+    public class LiftReport { public string wall, segment, from; public Vector3 at; public float wallHeight, length, floorY, cornice, rise, afterJump, afterDouble, reachY; public bool toTop; public List<string> reaches = new List<string>(); }
+
+    /// Every wall a run can be entered on from a floor at its foot, jumped at (the worst case): how high the run, the
+    /// wall jump and the pip lift the player (LevelMetricsMath.WallLift, with the wall's top and any ceiling over the
+    /// run), and which surfaces above the floor that puts within reach along the wall. One report per wall (both
+    /// faces of a box are in the list; the first with a floor at its foot speaks for it)
+    static void WallLifts(Geometry g, LevelMetricsMath.Values v, Result res)
+    {
+        var segOf = new Dictionary<int, string>(); var orderOf = new Dictionary<int, int>(); int order = 0;
+        foreach (var seg in res.segments)
+        {
+            if (seg.start >= 0) { segOf[seg.start] = seg.name; if (!orderOf.ContainsKey(seg.start)) orderOf[seg.start] = order++; }
+            foreach (var e in seg.path) { segOf[e.to] = seg.name; if (!orderOf.ContainsKey(e.to)) orderOf[e.to] = order++; }
+        }
+        var done = new HashSet<Collider>();
+        foreach (var w in g.walls)
+        {
+            if (w.name == "Lintel" || w.name == "Post" || w.name == "Cornice") continue;
+            if (w.top - w.bottom < 2f || w.halfLen < 1.5f) continue;
+            if (w.col != null && done.Contains(w.col)) continue;
+            // the floor at its foot: a floor of the line within a body of the wall's bottom, in front of the face
+            Plat P = null; float floorY = 0f; Vector3 foot = Vector3.zero;
+            for (int k = -1; k <= 1 && P == null; k++)
+            {
+                Vector3 probe = w.c + w.u * (k * w.halfLen * 0.6f) + w.n * 1.0f;
+                foreach (var p in g.plats)
+                {
+                    if (p.lift || !Inside(p, probe, 0.3f)) continue;
+                    float y = p.YAt(Mathf.Clamp(probe.x, p.minX, p.maxX), Mathf.Clamp(probe.z, p.minZ, p.maxZ));
+                    if (y < w.bottom - 1.6f || y > w.bottom + 1.6f || y > w.top - 1.6f) continue;
+                    P = p; floorY = y; foot = probe; foot.y = y; break;
+                }
+            }
+            if (P == null) continue;
+            if (w.col != null) done.Add(w.col);
+            float attachY = floorY + 0.3f;   // the feet a hair up: the jump has just left the floor when the wall takes
+            // a ceiling over the strip the body runs in: the lowest underside within a run's rise
+            float cornice = float.PositiveInfinity;
+            Vector3 q = foot + w.n * (-0.3f);
+            foreach (var c in g.ceils)
+            {
+                if (c.col == P.col) continue;
+                if (q.x < c.minX - 0.2f || q.x > c.maxX + 0.2f || q.z < c.minZ - 0.2f || q.z > c.maxZ + 0.2f) continue;
+                float h = c.YAt(q.x, q.z) - attachY;
+                if (h > 0.5f && h < 12f && h < cornice) cornice = h;
+            }
+            var lift = LevelMetricsMath.WallLift(v, v.jumpImpulse, w.top - attachY, cornice);
+            float reachY = attachY + lift.afterDouble;
+            var r = new LiftReport { wall = w.name, segment = segOf.TryGetValue(P.id, out string s) ? s : "off the line", from = P.name, at = w.c, wallHeight = w.top - w.bottom, length = w.halfLen * 2f, floorY = floorY, cornice = cornice, rise = lift.rise, afterJump = lift.afterJump, afterDouble = lift.afterDouble, reachY = reachY, toTop = lift.toTop };
+            var names = new Dictionary<string, int>();
+            foreach (var p in g.plats)
+            {
+                if (p == P || p.col == P.col || p.name == "Cornice" || p.name.EndsWith("Body") || p.name.StartsWith("Hidden")) continue;   // a hidden line's pieces are reached from its own wall by design
+                if (orderOf.TryGetValue(p.id, out int po) && orderOf.TryGetValue(P.id, out int fo) && po <= fo) continue;   // a floor of the line behind the player is no skip
+                float top = p.YAt(p.Centre.x, p.Centre.z);
+                if (top < floorY + 1.5f || top > reachY + 0.1f) continue;
+                if (!InWallsReach(w, p)) continue;
+                string label = p.col == w.col ? "the wall's own top (" + Mathf.Min(p.Width, p.Depth).ToString("0.0", Ci) + " m wide)" : "'" + p.name + "'";
+                names[label] = names.TryGetValue(label, out int n) ? n + 1 : 1;
+            }
+            foreach (var kv in names) r.reaches.Add(kv.Value > 1 ? kv.Key + " ×" + kv.Value : kv.Key);
+            res.lifts.Add(r);
+            if (r.reaches.Count == 0 || !orderOf.ContainsKey(P.id)) continue;   // a wall beside a floor the line never stands on is noted, not a finding
+            res.liftSkips++;
+            res.findings.Add(new Finding { severity = 45, title = "A WALL THAT LIFTS", segment = r.segment, at = w.c + w.n * 1f,
+                experience = "Jump at '" + w.name + "' and run it: the run rises " + lift.rise.ToString("0.0", Ci) + " m" + (lift.toTop ? " to its top" : "") + ", the wall jump off it tops out " + lift.afterJump.ToString("0.0", Ci) + " m over the floor and a double jump after it " + lift.afterDouble.ToString("0.0", Ci) + " m. That puts " + string.Join(", ", r.reaches) + " underfoot, over the beat.",
+                where = "Segment " + r.segment + ": '" + w.name + "' " + r.length.ToString("0", Ci) + " m long, " + r.wallHeight.ToString("0.0", Ci) + " m tall, beside '" + P.name + "' at " + Fmt(w.c) + (float.IsInfinity(cornice) ? ", nothing over the run" : ", a ceiling " + cornice.ToString("0.0", Ci) + " m over it") + ".",
+                why = "The run keeps the jump's rise and adds the entry pop under almost no gravity; the wall jump adds half of what is left; the wall touch refunds the pip. A cornice 3 m over the floor along the wall holds the lift to about 5 m; a wall that rises higher than the lift has no top to land on; or the motor could clamp the rise on entry." });
+        }
+    }
+
+    /// Whether a floor lies where a run along the wall and the jumps off it can come down: along the wall's line, up
+    /// to 22 m past either end, and no more than 12 m out from its face (the push away and the air control)
+    static bool InWallsReach(Wall w, Plat p)
+    {
+        foreach (var k in new[] { new Vector3(p.minX, 0f, p.minZ), new Vector3(p.maxX, 0f, p.minZ), new Vector3(p.minX, 0f, p.maxZ), new Vector3(p.maxX, 0f, p.maxZ), new Vector3((p.minX + p.maxX) * 0.5f, 0f, (p.minZ + p.maxZ) * 0.5f) })
+        {
+            Vector3 d = k - new Vector3(w.c.x, 0f, w.c.z);
+            float along = Mathf.Abs(Vector3.Dot(d, w.u)), lateral = Vector3.Dot(d, w.n);
+            if (along <= w.halfLen + 22f && lateral >= -1f && lateral <= 12f) return true;
+        }
+        return false;
+    }
+
     // ---------------------------------------------------------------- the findings
 
     public class Finding { public int severity; public string title, experience, where, why; public Vector3 at; public string segment; public int number; }
@@ -1104,6 +1190,8 @@ public static class LevelValidator
         public List<Segment> segments = new List<Segment>();
         public List<HiddenReport> hidden = new List<HiddenReport>();   // every hidden line found and timed
         public List<SpeedCheck> speed = new List<SpeedCheck>();        // the snowball's verdict on every segment
+        public List<LiftReport> lifts = new List<LiftReport>();        // every wall a run can be entered on from a floor, and what its lift reaches
+        public int liftSkips;
         public int trivial, unpunished, straights;
         public int score; public float routeLength, wallRunMetres, flatMetres; public int jumps, drops, walls, plats, pads, checkpoints; public float longestGap, clearSeconds;
         public string summaryLine;
@@ -1278,6 +1366,8 @@ public static class LevelValidator
                 carried = sc.exit;
                 res.speed.Add(sc);
             }
+            // THE LIFT (2026-10-29): every wall at a floor's edge, jumped at and run: how high that puts the player, and onto what
+            WallLifts(g, reach.v, res);
             // wall running along the line
             res.wallRunMetres = WallRunMetres(g, res.segments);
             if (res.routeLength > 50f && res.wallRunMetres < res.routeLength * 0.1f)
@@ -1290,7 +1380,7 @@ public static class LevelValidator
             res.clearSeconds = res.routeLength / reach.v.baseRunSpeed + res.jumps * 0.7f + res.drops * 0.8f;
             res.summaryLine = kind + ": score " + res.score + ", " + res.findings.Count + " findings, line " + res.routeLength.ToString("0", Ci) + " m, ~" + res.clearSeconds.ToString("0", Ci) + " s at run speed, " + res.jumps + " gaps (longest " + res.longestGap.ToString("0.0", Ci) + " m), " + res.drops + " drops, wall-runnable " + res.wallRunMetres.ToString("0", Ci) + " m";
             if (res.hidden.Count > 0) { var sv = new List<string>(); foreach (var h in res.hidden) sv.Add(h.SavesRun.ToString("0.0", Ci) + " s"); res.summaryLine += ", " + res.hidden.Count + " hidden route(s) saving " + string.Join(" / ", sv); }
-            res.summaryLine += ", at speed: " + res.trivial + " trivial gap(s), " + res.unpunished + " unpunished, " + res.straights + " free straight(s)";
+            res.summaryLine += ", at speed: " + res.trivial + " trivial gap(s), " + res.unpunished + " unpunished, " + res.straights + " free straight(s), " + res.liftSkips + " wall(s) that lift onto something";
             WriteReport(res, g);
             LevelOverhead.WriteImages(kind.ToString(), res.bounds, g, res.segments, res.findings, built.roots);
             foreach (var h in res.hidden)   // the view from each hidden line's reset pad, as the player sees it
@@ -1453,6 +1543,18 @@ public static class LevelValidator
                 foreach (var l in s.straights) sb.AppendLine("- " + l);
                 sb.AppendLine();
             }
+        }
+        if (r.lifts.Count > 0)
+        {
+            var vv = new LevelMetricsMath.Values();
+            var lj = LevelMetricsMath.WallLift(vv, vv.jumpImpulse, 1000f);
+            sb.AppendLine("## Walls that lift");
+            sb.AppendLine();
+            sb.AppendLine("Every wall a run can be entered on from a floor at its foot, taken the worst way: jumped at (" + vv.jumpImpulse.ToString("0", Ci) + " m/s up at the touch). The run keeps that rise and adds the entry pop under almost no gravity, the wall jump adds half of what is left to its own " + vv.wallRunJumpUpImpulse.ToString("0", Ci) + ", the touch refunds the double jump: with no top and no ceiling the chain tops out " + lj.afterDouble.ToString("0.0", Ci) + " m over the floor (" + lj.afterJump.ToString("0.0", Ci) + " without the pip). A wall's top ends the run early; a ceiling over the run stops the rise. REACHES lists every surface at least a body above the floor and no higher than the lift within 32 m of the wall. The full table by entry and wall height is section 3b of Docs/Design/level-metrics.md.");
+            sb.AppendLine();
+            foreach (var l in r.lifts)
+                sb.AppendLine("- **" + l.segment + "**: '" + l.wall + "' " + l.length.ToString("0", Ci) + " m long, " + l.wallHeight.ToString("0.0", Ci) + " m tall beside '" + l.from + "' at " + Fmt(l.at) + (float.IsInfinity(l.cornice) ? "" : ", a ceiling " + l.cornice.ToString("0.0", Ci) + " m over the run") + ": the run rises " + l.rise.ToString("0.0", Ci) + " m" + (l.toTop ? " to the top" : "") + ", the wall jump tops out " + l.afterJump.ToString("0.0", Ci) + " m over the floor, the pip " + l.afterDouble.ToString("0.0", Ci) + " m. " + (l.reaches.Count > 0 ? "REACHES " + string.Join(", ", l.reaches) + "." : "Reaches nothing above the floor."));
+            sb.AppendLine();
         }
         sb.AppendLine("## Findings, worst first");
         sb.AppendLine();
