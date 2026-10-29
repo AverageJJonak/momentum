@@ -150,6 +150,16 @@ public class DebugHUD : MonoBehaviour
                          || (detail != null && detail.EndsWith("PERFECT"));
         if (!string.IsNullOrEmpty(detail) && type != MoveType.ParryWhiff && type != MoveType.Fist && type != MoveType.WallHit && type != MoveType.Kick && type != MoveType.Trick)
             label += $"  {detail}";   // a perfect carries its figure
+        // FRESHNESS (STEP 1): the move's freshness on its line, so the player learns what a stale move pays
+        if (style != null && style.FreshnessOn && style.config.freshnessHud && !(type == MoveType.Trick && detail != null && (detail == "STUMBLE" || detail.StartsWith("LANDED"))))
+        {
+            string fkey = StyleSystem.FreshnessKey(type);
+            if (fkey != null)
+            {
+                float fr = style.FreshnessOf(fkey);
+                if (fr < 0.995f) label += "  ·  " + Mathf.RoundToInt(fr * 100f) + "% FRESH";
+            }
+        }
         AddFeed(label, highlight, type == MoveType.GlitchTech);
     }
 
@@ -662,7 +672,40 @@ public class DebugHUD : MonoBehaviour
         UIScale.Label(new Rect(x + 60f, y + 2f, w - 60f, 24f), styleLine1, labelStyle);
         UIScale.Label(new Rect(x + 60f, y + 22f, w - 60f, 24f), styleLine2, labelStyle);
         GUI.color = Color.white;
+        if (style.FreshnessOn && style.config.freshnessHud) DrawFreshness(x, y + 66f);
     }
+
+    /// FRESHNESS (STEP 1): the strip under the style card, one cell per move seen this level: its name and a bar that
+    /// drains as the move goes stale (gold fresh, paper half, red stale), flashing white the moment it is used
+    void DrawFreshness(float x, float y)
+    {
+        int n = Mathf.Min(style.FreshCount, 8);
+        if (n == 0) return;
+        Texture2D white = Texture2D.whiteTexture;
+        for (int i = 0; i < n; i++)
+        {
+            string key = style.FreshKey(i);
+            float f = style.FreshnessOf(key), since = Time.time - style.FreshUsedAt(key);
+            float cx = x + i * 40f;
+            Color c = f >= 0.66f ? MenuStyle.HudGold : f >= 0.33f ? MenuStyle.Paper : MenuStyle.HudRed;
+            if (since >= 0f && since < 0.25f) c = Color.Lerp(Color.white, c, since / 0.25f);
+            GUI.color = A(MenuStyle.Paper, 0.85f);
+            UIScale.Label(new Rect(cx, y, 36f, 12f), FreshLabel(key), lampLabelStyle);
+            GUI.color = Color.white;
+            Rect bar = new Rect(cx, y + 13f, 36f, 5f);
+            Fill(bar, A(MenuStyle.Ink, 0.6f));
+            Fill(new Rect(bar.x, bar.y, bar.width * f, bar.height), A(c, 0.95f));
+        }
+        _ = white;
+    }
+
+    static string FreshLabel(string key) => key switch
+    {
+        "bhop-jump" => "HOP", "slide" => "SLD", "slide-jump" => "SJ", "dash" => "DSH", "double-jump" => "DJ", "wall-kick" => "KCK",
+        "wall-run" => "RUN", "wall-jump" => "WJ", "corner-boost" => "CNR", "edge-boost" => "EDG", "slam" => "SLM", "slam-storage-jump" => "SSJ",
+        "trick" => "TRK", "hidden-tech" => "???", "parry" => "PRY", "glass-break" => "GLS",
+        _ => key.Length > 3 ? key.Substring(0, 3).ToUpperInvariant() : key.ToUpperInvariant(),
+    };
 
     // The host's gauge, and it is live: every jab, parry, counter and execute takes
     // a bite — the bar flashes white, jolts on the big ones, shows the bite's name

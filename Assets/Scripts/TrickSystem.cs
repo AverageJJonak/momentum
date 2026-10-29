@@ -60,7 +60,7 @@ public class TrickSystem : MonoBehaviour
     public float RemainingAir => landAt - Time.time;
 
     Kind kind;
-    float arcStart, arcSeconds, sideSign = 1f;
+    float arcStart, arcSeconds, sideSign = 1f, arcFresh = 1f;
     bool arcPerfect, pendingPay, stumbling;
     float stumbleAt, stumbleAngle0, stumbleSeconds;
     float windowOpen = -10f, windowClose = -10f, windowCentre, armedAt = -10f, ringClose = -10f;
@@ -204,7 +204,8 @@ public class TrickSystem : MonoBehaviour
         armed = false;
         LastTrickAt = now;
         float zone = StyleZone.StyleScaleAt(motor.CurrPosition);
-        float burst = (perfect ? config.trickPerfectBurstScale : 1f) * Mathf.Pow(Mathf.Max(1f, config.trickComboBurstScale), ComboIndex);
+        arcFresh = StyleSystem.GainScale(MoveType.Trick);   // FRESHNESS (STEP 1): read before the press's event spends it; the landing's pay uses the same
+        float burst = (perfect ? config.trickPerfectBurstScale : 1f) * Mathf.Pow(Mathf.Max(1f, config.trickComboBurstScale), ComboIndex) * arcFresh;
         Vector3 v = motor.Velocity;
         float h = new Vector2(v.x, v.z).magnitude;
         Vector3 fwd = h > 0.5f ? new Vector3(v.x, 0f, v.z) / h : Quaternion.Euler(0f, look.Yaw, 0f) * Vector3.forward;
@@ -301,7 +302,7 @@ public class TrickSystem : MonoBehaviour
         float tier = motor.PerfectTierMultiplier(config.trickPerfectMultiplier, config.trickPerfectMinMultiplier);
         float cap = Mathf.Max(h, config.baseRunSpeed) * motor.PerfectTierMultiplier(config.perfectBhopSpeedMultiplier, config.perfectBhopMinMultiplier);
         float s = Mathf.Min(Mathf.Max(h, config.trickLandFloorSpeed) * tier, cap);
-        float gain = Mathf.Max(0f, s - h);
+        float gain = Mathf.Max(0f, s - h) * arcFresh;   // FRESHNESS (STEP 1): the landing pays at the freshness the press was thrown at
         if (gain > 0f) motor.AddImpulse(dir * gain);
         if (stamina != null && config.trickPerfectPips > 0) stamina.Refund(config.trickPerfectPips);
         LandedPaid = true;
