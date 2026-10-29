@@ -1,3 +1,5 @@
+**THE LIVE GUIDE is `art-direction.md` (2026-10-29): the architecture, lighting, atmosphere, city pieces, palette, the beats mapped to the architecture, the kit rule (deco, not brutalist), and the no-DC rule. This file is the history of the look since 2026-10-07.**
+
 
 **The decision (2026-10-07):** the user found the futuristic cyberpunk look bland; offered Deco/brutalist/gothic/ruin/ink, they chose ART DECO — "I LOVED art deco growing up with Batman the animated series, everything needs to change to that". Direction: DARK DECO, Gotham 1939. The company (Halcyon) is a 1930s corporation; the House is its tower.
 
