@@ -16,7 +16,7 @@ using UnityEngine;
 /// </summary>
 public static class BeatGymBuilder
 {
-    const float BaseY = 40f, HalfW = 5f, PadHalfW = 2.5f, SlopeDeg = 12f;
+    const float BaseY = 40f, HalfW = 5f, PadHalfW = 2.5f, SlopeDeg = 12f, GroundBelow = 220f;   // the row descends about 170 m; the ground stays under the kill floor
 
     public static Vector3 Build(MovementConfig config)
     {
@@ -25,7 +25,8 @@ public static class BeatGymBuilder
         LevelSections.Begin(7, BaseY);
         var root = new GameObject("BeatGym").transform;
         var v = LevelMetrics.Read(config);
-        var f = new Frame(root, v, new Pose(new Vector3(0f, BaseY, 0f), 0f, 0f));
+        var f = new Frame(root, v, new Pose(new Vector3(0f, BaseY, 0f), 0f, 0f)) { groundY = BaseY - GroundBelow };
+        f.Ground();   // THE CITY FLOOR far below: every deck is a rooftop on its building, every stone a pillar, every wall a facade (2026-10-29: "no floating platforms")
 
         // the start: a floor, the first checkpoint, the gym's sign
         f.Deck(0f, 12f, 0f, HalfW + 2f, "Start");
@@ -48,7 +49,7 @@ public static class BeatGymBuilder
         LevelSections.Last.finishPortal = f.P(0f, 2f, 12f);
         LevelSections.Last.spawn = spawn;
         LevelSections.Last.length = Vector3.Distance(spawn, f.origin);
-        GameBootstrap.KillFloorY = f.lowest - 30f;
+        GameBootstrap.KillFloorY = f.Structural ? f.groundY + 15f : f.lowest - 30f;   // the bodies reach the ground, so `lowest` is the ground: the kill floor stays above it
         var foot = f.built; foot.Expand(new Vector3(120f, 60f, 120f));
         CityVista.Override = foot;
         CityVista.Suppressed = true;   // a test rig, not a place: no skyline round two kilometres of row (it would be thousands of blocks)
@@ -86,7 +87,7 @@ public static class BeatGymBuilder
     {
         f.Deck(0f, 5f, 0f, HalfW, "After"); f.Line(0f, 0.5f, 4.5f, 0f);
         f.Deck(5f, 17f, 0f, HalfW, "SettleCorner"); f.Line(0f, 5.5f, 15f, 0f);
-        f.Mass(side > 0f ? 1f : -9f, side > 0f ? 9f : -1f, -0.5f, 4f, 5f, 13f, "SettleBlock");
+        f.Mass(side > 0f ? 1f : -9f, side > 0f ? 9f : -1f, -0.5f, Frame.FacadeHeight, 5f, 13f, "SettleBlock");   // rooftop machinery, as tall as a facade: a run up its face finds no top (the lift reaches eleven metres)
         f.Lamp(0f, 5f, 15f);
         f.Advance(15f, 0f);
         f.Turn(side * 90f);
