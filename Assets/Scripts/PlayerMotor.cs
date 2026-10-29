@@ -735,7 +735,7 @@ public class PlayerMotor : MonoBehaviour
             // Tiered like the hop: a press inside the perfect window converts in full, a buffered or late one half.
             // The pip comes back either way (ResetDetector), so a slam is never a dead stop in a fight
             bool perfectSlam = Mathf.Abs(lastJumpPressTime - slamLandTime) <= config.perfectBhopWindow;
-            float conv = perfectSlam ? config.slamStorageConversion : config.slamStorageConversion * 0.5f;
+            float conv = (perfectSlam ? config.slamStorageConversion : config.slamStorageConversion * 0.5f) * StyleSystem.GainScale(MoveType.SlamStorageJump);   // FRESHNESS (STEP 1)
             Vector3 dir = ReadWishDir();
             if (dir == Vector3.zero) dir = new Vector3(v.x, 0f, v.z).normalized;
             if (dir != Vector3.zero)
@@ -756,6 +756,7 @@ public class PlayerMotor : MonoBehaviour
             float mult = perfect
                 ? PerfectTierMultiplier(config.slideJumpHorizontalMultiplier, config.perfectSlideJumpMinMultiplier)
                 : LazySlideJumpMultiplier(HorizontalSpeed);
+            mult = 1f + (mult - 1f) * StyleSystem.GainScale(perfect ? MoveType.PerfectSlideJump : MoveType.SlideJump);   // FRESHNESS (STEP 1)
             v = new Vector3(v.x * mult, config.slideJumpVerticalImpulse, v.z * mult);
             sliding = false;
             pendingEmit = perfect ? MoveType.PerfectSlideJump : MoveType.SlideJump;
@@ -776,6 +777,7 @@ public class PlayerMotor : MonoBehaviour
                 {
                     float mult = PerfectTierMultiplier(
                         config.perfectBhopSpeedMultiplier, config.perfectBhopMinMultiplier);
+                    mult = 1f + (mult - 1f) * StyleSystem.GainScale(MoveType.PerfectBhop);   // FRESHNESS (STEP 1): the gain above the kept speed, by how fresh the hop is
                     v.x *= mult;
                     v.z *= mult;
                     pendingEmit = MoveType.PerfectBhop;
@@ -966,7 +968,7 @@ public class PlayerMotor : MonoBehaviour
         float hBefore = HorizontalSpeed;
         Vector3 vh = new Vector3(velocity.x, 0f, velocity.z);
         Vector3 tangent = vh - n * Vector3.Dot(vh, n);
-        Vector3 v = tangent * config.wallRunJumpTangentBoost + n * config.wallRunJumpNormalImpulse;
+        Vector3 v = tangent * (1f + (config.wallRunJumpTangentBoost - 1f) * StyleSystem.GainScale(MoveType.WallJump)) + n * config.wallRunJumpNormalImpulse;   // FRESHNESS (STEP 1): the boost over the pace kept scales; the push away does not
         Vector3 inputBoost = ReadWishDir() * config.wallRunJumpInputImpulse;
         float intoWall = Vector3.Dot(inputBoost, n);
         if (intoWall < 0f) inputBoost -= n * intoWall;
@@ -1005,7 +1007,7 @@ public class PlayerMotor : MonoBehaviour
         if (!free && (stamina == null || !stamina.TrySpend(config.wallKickCost))) return false;
 
         float hBefore = HorizontalSpeed;
-        float mult = corner ? config.edgeBoostImpulseMultiplier : 1f;
+        float mult = corner ? 1f + (config.edgeBoostImpulseMultiplier - 1f) * StyleSystem.GainScale(MoveType.EdgeBoost) : 1f;   // FRESHNESS (STEP 1): the corner's extra over a plain kick scales
         float keep = corner ? 1f : config.wallKickTangentKeep;
         bool twoFaces = corner && n2 != Vector3.zero;   // a marked corner with one face found still kicks off that face
         Vector3 kickDir = n;

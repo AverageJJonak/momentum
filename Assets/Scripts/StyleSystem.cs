@@ -77,6 +77,57 @@ public class StyleSystem : MonoBehaviour
 
     float enabledAt;   // the starvation clock's start when no trick has been thrown yet
 
+    // ---------------------------------------------------------------- FRESHNESS (STEP 1, 2026-10-29): one value per move key, 1 = fresh
+
+    readonly Dictionary<string, float> fresh = new Dictionary<string, float>();
+    readonly Dictionary<string, float> freshUsedAt = new Dictionary<string, float>();
+    readonly List<string> freshOrder = new List<string>();   // the keys seen this level, in the order they first appeared (the HUD's strip)
+    /// The keys seen so far and their freshness (0 stale … 1 fresh), when each was last used
+    public int FreshCount => freshOrder.Count;
+    public string FreshKey(int i) => freshOrder[i];
+    public float FreshnessOf(string key) => fresh.TryGetValue(key, out float f) ? f : 1f;
+    public float FreshUsedAt(string key) => freshUsedAt.TryGetValue(key, out float t) ? t : float.NegativeInfinity;
+    public bool FreshnessOn => config != null && config.freshnessEnabled;
+
+    /// What a move's GAIN is worth right now (1 = the full gain, down to the floor): the motor and the trick system ask
+    /// before they pay, and the event the move then emits is what spends the freshness, so the scale read is the one
+    /// before the spend. 1 when the system is off, absent, or the move is no freshness move
+    public static float GainScale(MoveType type)
+    {
+        var s = Current;
+        if (s == null || s.config == null || !s.config.freshnessEnabled) return 1f;
+        string key = FreshnessKey(type);
+        if (key == null) return 1f;
+        return Mathf.Max(Mathf.Clamp01(s.config.freshnessGainFloor), s.FreshnessOf(key));
+    }
+
+    /// A use of `key`: its freshness drops, every other move's recovers a little (a trick's drop is its own, and a trick refreshes the others the most)
+    void Spend(string key)
+    {
+        if (!FreshnessOn) return;
+        bool trick = key == "trick";
+        float drop = Mathf.Clamp01(trick ? config.freshnessTrickDrop : config.freshnessDropPerUse);
+        float give = Mathf.Clamp01(trick ? config.freshnessTrickRefreshOthers : config.freshnessRecoverPerOtherMove);
+        if (!fresh.ContainsKey(key)) { fresh[key] = 1f; freshOrder.Add(key); }
+        for (int i = 0; i < freshOrder.Count; i++)
+        {
+            string k = freshOrder[i];
+            if (k != key) fresh[k] = Mathf.Min(1f, fresh[k] + give);
+        }
+        fresh[key] = Mathf.Max(0f, fresh[key] - drop);
+        freshUsedAt[key] = Time.time;
+    }
+
+    void RecoverFreshness(float dt)
+    {
+        if (!FreshnessOn || config.freshnessRecoverPerSecond <= 0f) return;
+        for (int i = 0; i < freshOrder.Count; i++)
+        {
+            string k = freshOrder[i];
+            fresh[k] = Mathf.Min(1f, fresh[k] + config.freshnessRecoverPerSecond * dt);
+        }
+    }
+
     void OnEnable()
     {
         enabledAt = Time.time;
@@ -105,11 +156,12 @@ public class StyleSystem : MonoBehaviour
         string key = FreshnessKey(type);
         if (key == null) return;
         Prune();
-        bool fresh = !window.Exists(e => e.key == key);
+        bool isFresh = !window.Exists(e => e.key == key);
         window.Add((key, Time.time));
         RecomputeMultiplier();
-        if (type == MoveType.Slam) { slamPressFresh = fresh; return; } // held until the landing says how far it fell
-        if (fresh) AddPoints(config.styleFreshMovePoints); // repeats add nothing (spec §1)
+        Spend(key);   // FRESHNESS (STEP 1): the use is spent after the move paid (the motor read GainScale before this event)
+        if (type == MoveType.Slam) { slamPressFresh = isFresh; return; } // held until the landing says how far it fell
+        if (isFresh) AddPoints(config.styleFreshMovePoints); // repeats add nothing (spec §1)
     }
 
     void OnReset(string label, bool scores) { if (scores) AddPoints(config.styleResetPoints); }
@@ -137,6 +189,7 @@ public class StyleSystem : MonoBehaviour
         Current = this;
         Prune();
         RecomputeMultiplier();
+        RecoverFreshness(Time.deltaTime);
 
         // THE GRADE DRIVES THE BODY (2026-10-26): run speed and stamina regen climb with the rank
         if (motor != null) motor.StyleSpeedScale = 1f + Mathf.Max(0f, config.styleSpeedPerRank) * rankIndex;
