@@ -127,7 +127,6 @@ public class CombatDirector : MonoBehaviour
         bool airborne = motor != null && !motor.Grounded;
         KillReported?.Invoke(method, motor != null ? new Vector2(motor.Velocity.x, motor.Velocity.z).magnitude : 0f, airborne);
         bool duringYank = grapple != null && grapple.KillCountsAsYank;
-        if (style != null) style.RegisterKill(method);
         if (resets != null) resets.OnKill(airborne, duringYank);
         if (GameFeel.Instance != null) GameFeel.Instance.PlayKill();
     }
@@ -174,12 +173,11 @@ public class CombatDirector : MonoBehaviour
         }
     }
 
-    /// Weakspot execute: precision is a reset (+1 pip) and worth extra style
+    /// Weakspot execute: precision is a reset (+1 pip); it scores no style (movement only, 2026-10-29)
     public void ReportExecute()
     {
         LastActionTime = Time.time;
         if (resets != null) resets.CombatReset("EXECUTE", 1);
-        if (style != null) style.AddBonus(config.executeStyleBonus);
     }
 
     /// A PERFECT tackle (Strike timed inside the window before the body): timing is a reset, +1 pip

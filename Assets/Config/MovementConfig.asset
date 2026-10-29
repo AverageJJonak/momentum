@@ -106,7 +106,6 @@ MonoBehaviour:
   styleFreshMovePoints: 20
   styleResetPoints: 30
   styleResetRepeatWindow: 6
-  styleKillPoints: 50
   freshnessWindowSeconds: 6
   freshnessMultiplierPerDistinct: 0.25
   freshnessMultiplierMax: 3
@@ -187,7 +186,6 @@ MonoBehaviour:
   swordCooldown: 0.5
   swordWhiffRecovery: 0.85
   swordCommit: 0.28
-  executeStyleBonus: 40
   executeHitstop: 0.12
   swordHitstop: 0.045
   swordSweepAngle: 45
@@ -280,8 +278,6 @@ MonoBehaviour:
   janitorVentEvery: 2
   janitorVentSeconds: 3.5
   janitorStaggerTime: 2.5
-  killVarietyWindow: 10
-  killVarietyPerMethod: 0.25
   bowDamage: 22
   bowDrawTime: 0.4
   bowMinDraw: 0.25
