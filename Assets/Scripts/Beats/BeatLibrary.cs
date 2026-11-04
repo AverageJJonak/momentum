@@ -170,28 +170,35 @@ public class Drop : Beat
 }
 
 /// FORK: the line splits round a divider — the SAFE side a colonnade (a whole floor under a lintel every eight metres:
-/// slow for a hopper too) that ends in a slope down, the RISKY side one to three hop stones at 80% of the reach at
-/// 12 m/s, each a metre lower, three metres deep: that speed and not much more — and they meet again under a portal
+/// slow for a hopper too) that ends in a slope down, the RISKY side a BAR to slide under and a SLIDE JUMP (2026-11-04;
+/// the user: "every jump sequence mixes in at least one other move") to the first of one to three hop stones, each a
+/// metre lower, three metres deep, spaced for the speed the slide jump leaves: that speed and not much more — and they
+/// meet again under a portal
 public class Fork : Beat
 {
     public override string Name => "FORK";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => 12f;
-    public override string Note(LevelMetricsMath.Values v, int d) => "left: safe and slow, a colonnade · right: " + (int)Pick(d, 1, 2, 3) + " stone(s) " + F1(BeatMath.Gap(v, 12f, -1f, 0.8f)) + " m apart at 12 m/s";
+    public override string Note(LevelMetricsMath.Values v, int d) => "left: safe and slow, a colonnade · right: SLIDE the bar, slide-jump " + F1(BeatMath.SlideJumpReach(v, 12f, -1f) * 0.8f) + " m to the first stone, hop " + (int)Pick(d, 0, 1, 2) + " more";
     public override float Build(Frame f, int d)
     {
         int n = (int)Pick(d, 1, 2, 3);
-        float gap = BeatMath.Gap(f.v, 12f, -1f, 0.8f);
-        const float first = 4f, stone = 3f, lane = 2.75f, off = 4.25f;
-        float len = first + n * (gap + stone) + gap;   // the last gap lands on the rejoin
+        const float first = 4f, stone = 3f, lane = 2.75f, off = 4.25f, s = 12f;
+        // the first gap is 80% of the slide jump's reach at 12 m/s; the hops after it are sized for the speed between the lazy
+        // and the perfect slide jump's, so the lazy one lands a little short of each stone's middle and the perfect one a little past it
+        float gap1 = BeatMath.SlideJumpReach(f.v, s, -1f) * 0.8f;
+        float hop = s * 0.5f * (LevelMetricsMath.SlideJumpMultiplier(f.v, s, false) + LevelMetricsMath.SlideJumpMultiplier(f.v, s, true));
+        float gap = BeatMath.Gap(f.v, hop, -1f, 0.8f);
+        float len = first + gap1 + n * (stone + gap);   // the last gap lands on the rejoin
         f.Deck(0f, 4f, 0f, HalfW, "ForkMouth");
         f.Mass(-1.5f, 1.5f, f.Structural ? f.groundY : -1f, f.Structural ? f.facadeHeight : 4f, 4f, 4f + len, "Divider");   // a building between the two ways, too tall for a run to top
         // the risky right side: a floor, then stones, each a metre lower, the rejoin a metre lower still
         float z = 4f, y = 0f;
         f.Deck(z, z + first, y, lane, "RiskyFloor", off);
+        f.Portal(z + first - 1.75f, y, lane - 0.2f, 1.25f, 2.25f, false, true, off);   // the bar: a gate off the divider with a slot a slide passes; a run or a hop into it stops
         z += first;
         for (int i = 0; i < n; i++)
         {
-            z += gap; y -= 1f;
+            z += i == 0 ? gap1 : gap; y -= 1f;
             f.Deck(z, z + stone, y, lane, "RiskyStone", off);
             z += stone;
         }
