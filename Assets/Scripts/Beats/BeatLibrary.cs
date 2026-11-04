@@ -215,18 +215,26 @@ public class Fork : Beat
     }
 }
 
-/// SKIP: a gap straight ahead at 90% of the reach at 14 / 16 / 18 m/s that cuts out the long way round it; the landing
-/// is five metres under a portal (the long way comes in under the lintel's end)
+/// SKIP: a gap straight ahead at 14 / 16 / 18 m/s that cuts out the long way round it, crossed on a WALL RUN along the
+/// facade on its left (2026-11-04; the user: "every jump sequence mixes in at least one other move"): the gap is more
+/// than a plain jump at that speed makes (1.4 times the clean reach) and three quarters of what the run and the jump
+/// off it carry, the wall ending where that jump lands two metres onto the landing; the landing is five metres under a
+/// portal (the long way comes in under the lintel's end)
 public class Skip : Beat
 {
     public override string Name => "SKIP";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, 14f, 16f, 18f);
-    public override string Note(LevelMetricsMath.Values v, int d) { float s = EntrySpeed(v, d); return "straight: " + F1(BeatMath.Gap(v, s, -1f, 0.9f)) + " m at " + F0(s) + " m/s, land before the portal · or the long way right"; }
+    public override string Note(LevelMetricsMath.Values v, int d) { float s = EntrySpeed(v, d); return "straight: WALL RUN the left facade across " + F1(SkipGap(v, s)) + " m at " + F0(s) + " m/s, land before the portal · or the long way right"; }
+    /// More than any hop at this speed, three quarters of the wall run's carry
+    static float SkipGap(LevelMetricsMath.Values v, float s) => Mathf.Max(1.4f * BeatMath.Reach(v, s, -1f) + 0.5f, 0.75f * BeatMath.WallRunCarry(v, s, -1f));
     public override float Build(Frame f, int d)
     {
-        float s = EntrySpeed(f.v, d), gap = BeatMath.Gap(f.v, s, -1f, 0.9f);
+        float s = EntrySpeed(f.v, d), gap = SkipGap(f.v, s);
         const float laneW = 2f, outX = 11f, land = 5f;
+        var offWall = LevelMetricsMath.WallJump(f.v, s, 0f);
+        float wallEnd = 4f + gap + 2f - LevelMetricsMath.Jump(f.v, offWall.h, offWall.vy, -1f, false).distance;   // the jump off the wall's end lands two metres onto the landing
         f.Deck(0f, 4f, 0f, HalfW, "Launch"); f.Line(0f, 0.5f, 3.5f, 0f);
+        f.Wall(-(HalfW + 0.6f), 2f, wallEnd, 0.3f, 4f);   // the facade on the left: the way across
         f.Deck(4f + gap, 4f + gap + land, -1f, HalfW, "Landing"); f.Line(0f, 4.5f + gap, 3.5f + gap + land, -1f);
         f.Portal(4f + gap + land, -1f, HalfW, 2.2f, 5.5f, true, false);
         // the long way: a floor out to the right from the launch, a slope forward and down beside the gap, a floor back in to the landing
