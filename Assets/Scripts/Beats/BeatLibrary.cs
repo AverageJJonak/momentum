@@ -411,14 +411,15 @@ public class Turn : Beat
 /// jumps, turns, where going too fast makes you fail"). FIVE HOP STONES, three metres square, stepping left and right
 /// of the line, each spaced so the clean arc at the speed the beat names lands halfway across the next: slower falls
 /// short, a fifth faster (a perfect hop's worth, ×1.18) is at the far edge and more is off it — the speed has to be
-/// KEPT with lazy hops, and steered. Then I lands on a square and turns the corner on the ground (a turn at speed is a flight off
+/// KEPT with lazy hops, and steered. Between the third and the fourth stone the gap is a WALL RUN along a facade
+/// (2026-11-04: every jump sequence mixes in another move). Then I lands on a square and turns the corner on the ground (a turn at speed is a flight off
 /// the square) to a short hop and the exit; II runs a 1.2 m beam with a kink (a pad to turn on) and III a 1 m beam
 /// with two, and both end on a short landing under a portal. The stones and beams stand over nothing: too fast is a fall
 public class Control : Beat
 {
     public override string Name => "CONTROL";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, v.baseRunSpeed, 10f, 12f);
-    public override string Note(LevelMetricsMath.Values v, int d) => "KEEP " + F0(EntrySpeed(v, d)) + " m/s, no more: five stones " + F1(StoneGap(v, d)) + " m apart" + (d <= 1 ? ", the corner, a hop" : d == 2 ? ", a beam with a kink, the portal" : ", a 1 m beam with two kinks, the portal") + " · too fast is a fall";
+    public override string Note(LevelMetricsMath.Values v, int d) => "KEEP " + F0(EntrySpeed(v, d)) + " m/s, no more: five stones " + F1(StoneGap(v, d)) + " m apart, a WALL RUN from the third to the fourth" + (d <= 1 ? ", the corner, a hop" : d == 2 ? ", a beam with a kink, the portal" : ", a 1 m beam with two kinks, the portal") + " · too fast is a fall";
     static float StoneDeep(int d) => 3f;
     static float StoneGap(LevelMetricsMath.Values v, int d) => BeatMath.Reach(v, Pick(d, v.baseRunSpeed, 10f, 12f), 0f) - 0.5f * StoneDeep(d);
     public override float Build(Frame f, int d)
@@ -426,11 +427,25 @@ public class Control : Beat
         float s = EntrySpeed(f.v, d), deep = StoneDeep(d), gap = StoneGap(f.v, d);
         const float wide = 3f, offset = 1.25f, beamLen = 5f;
         f.Deck(0f, 4f, 0f, HalfW, "ControlLaunch"); f.Line(0f, 0.5f, 3.5f, 0f);
-        // the stones: left, right, left… of the line, one arc apart
+        // the stones: left, right, left… of the line, one arc apart, and between the third and the fourth a WALL RUN (2026-11-04;
+        // the user: "every jump sequence mixes in at least one other move"): that gap is more than any hop at this speed
+        // makes (1.4 times the clean reach) and about 70% of what a wall run and the jump off it carry, with a FACADE just
+        // outside the fourth stone's edge; the wall ends where a jump off its end lands in the middle of the stone. A tower
+        // face a precise hop reaches, runs and drops off: the speed still has to be KEPT, not built
         float z = 4f;
+        float wallGap = Mathf.Max(1.4f * BeatMath.Reach(f.v, s, 0f) + 0.5f, 0.7f * BeatMath.WallRunCarry(f.v, s, 0f));
+        var offWall = LevelMetricsMath.WallJump(f.v, s, 0f);
+        float jumpOff = LevelMetricsMath.Jump(f.v, offWall.h, offWall.vy, 0f, false).distance;
         for (int i = 0; i < 5; i++)
         {
-            z += gap;
+            if (i == 3)
+            {
+                float wallX = -(offset + wide * 0.5f + 0.6f);   // the fourth stone stands left of the line: the wall is just outside its left edge, and the jump off it lands on the stone
+                float wallLen = Mathf.Clamp(wallGap + deep * 0.5f - jumpOff - 0.5f, 3f, wallGap - 1.5f);
+                f.Wall(wallX, z + 0.5f, z + 0.5f + wallLen, -1f, 4f);
+                z += wallGap;
+            }
+            else z += gap;
             f.Stone(i % 2 == 0 ? offset : -offset, z + deep * 0.5f, 0f, wide, deep);
             z += deep;
         }
