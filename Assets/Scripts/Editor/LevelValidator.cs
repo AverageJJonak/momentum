@@ -745,9 +745,9 @@ public static class LevelValidator
     /// The rider: its speed, the flat gathered since the last break (to be cashed as a hop chain), what it met each gap with
     class Rider
     {
-        public float sp, peak, straight, straightFrom; public Vector3 straightAt, lastDir;
+        public float sp, peak, straight, straightFrom; public Vector3 straightAt, lastDir; public bool bent;   // the flat gathered so far crosses a BEND: steered, so not a straight
         public List<(Edge e, float wanted, float at)> launches = new List<(Edge, float, float)>();   // what it arrived at each gap with, and what it had to shed to for the move to land
-        public List<(float len, float from, float to, Vector3 at)> straights = new List<(float, float, float, Vector3)>();
+        public List<(float len, float from, float to, Vector3 at, bool bent)> straights = new List<(float, float, float, Vector3, bool)>();
         public Dictionary<int, float> leaving = new Dictionary<int, float>();   // the speed it left every floor of the line at
     }
 
@@ -774,7 +774,7 @@ public static class LevelValidator
             else Run(g, v, r, P, entry, e.a, dir, prevE != null ? g.plats[prevE.from].col : null);
             switch (e.move)
             {
-                case Move.Walk: Gather(r, e.a, Flat(e.a, e.b)); break;
+                case Move.Walk: if (P.name.StartsWith("Bend") || Q.name.StartsWith("Bend")) r.bent = true; Gather(r, e.a, Flat(e.a, e.b)); break;
                 case Move.Step: Cash(v, r); r.sp = v.baseRunSpeed; break;
                 case Move.Drop:
                     Cash(v, r); r.launches.Add((e, r.sp, r.sp));
@@ -837,6 +837,7 @@ public static class LevelValidator
             if (room < 1.95f) r.sp = Mathf.Max(v.baseRunSpeed, r.sp - v.slideFriction * len);   // a slide on the flat bleeds slideFriction a metre; under run speed you stand and run
             return;
         }
+        if (P.name.StartsWith("Bend")) r.bent = true;   // the gym's bends (2026-11-04): fifteen degrees a facet, carried like a flat, but a hop chain steered round ninety degrees is not a straight
         Gather(r, from, len);
     }
 
@@ -850,7 +851,7 @@ public static class LevelValidator
     /// The hop chain over the flat gathered so far: a clean arc, a perfect press, again, as far as the floor allows
     static void Cash(LevelMetricsMath.Values v, Rider r)
     {
-        if (r.straight < 0.5f) { r.straight = 0f; return; }
+        if (r.straight < 0.5f) { r.straight = 0f; r.bent = false; return; }
         float pos = 0f, s0 = r.sp;
         while (true)
         {
@@ -860,8 +861,8 @@ public static class LevelValidator
             r.sp = Mathf.Min(SnowballCap, r.sp * LevelMetricsMath.BhopMultiplier(v, r.sp));
         }
         r.peak = Mathf.Max(r.peak, r.sp);
-        r.straights.Add((r.straight, s0, r.sp, r.straightAt));
-        r.straight = 0f;
+        r.straights.Add((r.straight, s0, r.sp, r.straightAt, r.bent));
+        r.straight = 0f; r.bent = false;
     }
 
     /// What the chain over the flat gathered so far would reach, without cashing it
@@ -1064,7 +1065,7 @@ public static class LevelValidator
             if (e.move == Move.Drop || e.gap < 1.5f) continue;
             var P = g.plats[e.from]; var Q = g.plats[e.to];
             float sized = Mathf.Max(seg.sized, e.speed);
-            if (skip && (Q.name.StartsWith("Settle") || Mathf.Max(Yp, Yc) < 0.8f * sized)) continue;   // a hop onto the settle square is the corner's own business; a skip the rider is nowhere near fast enough for is not news
+            if (skip && (Q.name.StartsWith("Settle") || Q.name.StartsWith("Bend") || Mathf.Max(Yp, Yc) < 0.8f * sized)) continue;   // a hop onto the settle square is the corner's own business; a skip the rider is nowhere near fast enough for is not news
             Move how = HowOf(v, e, sized);
             // the move's tolerance: up from the sized speed until its landing is a lintel or nothing
             float tol = SnowballCap; string then = null;
@@ -1075,7 +1076,7 @@ public static class LevelValidator
             }
             // trivial: a plain jump at the speed the snowball arrives with lands clean, well over the sized speed
             int padFate = Fate(g, v, e, Yp, Move.Jump, out string padWhat), carFate = Fate(g, v, e, Yc, Move.Jump, out string carWhat);
-            bool control = Q.name.StartsWith("Control") || Q.name.StartsWith("Settle");   // a landing that is itself a control piece (a square to turn on, a kink pad) is meant to take the arc; what follows it is the test
+            bool control = Q.name.StartsWith("Control") || Q.name.StartsWith("Settle") || Q.name.StartsWith("Bend");   // a landing that is itself a control piece (a square to turn on, a kink pad) is meant to take the arc; what follows it is the test
             bool padTrivial = padFate == 0 && Yp >= TrivialOver * sized && !control;
             bool carTrivial = carFate == 0 && Yc >= TrivialOver * sized && !control;
             string gapWord = (skip ? "THE SKIP " : "") + "'" + P.name + "' → '" + Q.name + "', " + MoveWord(e) + " " + UpDown(e.dy) + ", sized " + sized.ToString("0", Ci) + " m/s";
@@ -1100,7 +1101,7 @@ public static class LevelValidator
         }
         foreach (var st in car.straights)
         {
-            if (st.len < StraightMin || st.to < st.from + 0.5f) continue;
+            if (st.len < StraightMin || st.to < st.from + 0.5f || st.bent) continue;   // a bend is ridden and its speed carried, but it is not a straight
             res.straights++;
             sc.straights.Add("a straight of " + st.len.ToString("0", Ci) + " m from " + Fmt(st.at) + ": a hop chain goes " + st.from.ToString("0.0", Ci) + " → " + st.to.ToString("0.0", Ci) + " m/s on it");
             res.findings.Add(new Finding { severity = 20, title = "A STRAIGHT THAT SNOWBALLS", segment = seg.name, at = st.at,
@@ -1552,7 +1553,7 @@ public static class LevelValidator
         {
             sb.AppendLine("## Speed control: the snowball");
             sb.AppendLine();
-            sb.AppendLine("Each segment ridden by a player who perfect-hops every flat with headroom (×" + LevelMetricsMath.BhopMultiplier(new LevelMetricsMath.Values(), 8f).ToString("0.00", Ci) + " a landing, fading past 18 m/s), slides every downhill, presses at every landing and keeps the wall jump's gain; capped at " + SnowballCap.ToString("0", Ci) + " m/s, the fastest the recordings show. Twice: FROM THE PAD (run speed at the segment's start) and CARRIED (with what the segment before handed on). At every gap the rider sheds to the most speed the move still lands at, so what it hands on is what a player who never falls can build. A ground turn of 60° or more, a settle corner, a kink pad, a step and a climb shed to run speed; a roof under 1.95 m is a slide (−" + new LevelMetricsMath.Values().slideFriction.ToString("0.0", Ci) + " m/s a metre); a roof under " + HopRoom.ToString("0.0", Ci) + " m stops the hops but keeps the speed (a hop that bonks under a low roof is not modelled). Every gap of the line, and every skip between two floors of it, is tried at the speed the rider arrives with: a plain jump that lands clean at " + TrivialOver.ToString("0.0", Ci) + "× the sized speed or more is TRIVIAL. The gap's own move is tried at every speed up from the sized one until a lintel is hit or no floor is under the landing: 'lands up to'. A straight is " + StraightMin.ToString("0", Ci) + " m or more of flat with headroom.");
+            sb.AppendLine("Each segment ridden by a player who perfect-hops every flat with headroom (×" + LevelMetricsMath.BhopMultiplier(new LevelMetricsMath.Values(), 8f).ToString("0.00", Ci) + " a landing, fading past 18 m/s), slides every downhill, presses at every landing and keeps the wall jump's gain; capped at " + SnowballCap.ToString("0", Ci) + " m/s, the fastest the recordings show. Twice: FROM THE PAD (run speed at the segment's start) and CARRIED (with what the segment before handed on). At every gap the rider sheds to the most speed the move still lands at, so what it hands on is what a player who never falls can build. A ground turn of 60° or more, a settle corner, a kink pad, a step and a climb shed to run speed; a roof under 1.95 m is a slide (−" + new LevelMetricsMath.Values().slideFriction.ToString("0.0", Ci) + " m/s a metre); a roof under " + HopRoom.ToString("0.0", Ci) + " m stops the hops but keeps the speed (a hop that bonks under a low roof is not modelled). Every gap of the line, and every skip between two floors of it, is tried at the speed the rider arrives with: a plain jump that lands clean at " + TrivialOver.ToString("0.0", Ci) + "× the sized speed or more is TRIVIAL. The gap's own move is tried at every speed up from the sized one until a lintel is hit or no floor is under the landing: 'lands up to'. A straight is " + StraightMin.ToString("0", Ci) + " m or more of flat with headroom; a bend (floors named Bend…, fifteen degrees a facet) is gathered like a flat, so what a hop chain steered round it builds is carried, but a bend is not reported as a straight.");
             sb.AppendLine();
             foreach (var s in r.speed)
             {

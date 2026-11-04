@@ -6,17 +6,19 @@ using UnityEngine;
 /// difficulties in turn, each on its own: a RESET PAD (a checkpoint across the floor and a brass strip, so a fall
 /// respawns you there), a SIGN naming the beat, its difficulty, what it asks and the speed it expects, a SLIDE SLOPE
 /// sized by the metrics to deliver exactly that speed when the beat wants more than a run (the sign says to slide it),
-/// the beat, five metres of floor after it, and a SETTLE CORNER (2026-10-29; the user: "no long flat straights to
-/// build speed for free. Speed should be earned in specific places"): a square the line turns ninety degrees on, left
-/// and right by turns, so the row is a staircase of legs and never a straight. A run turns the corner; whatever came
-/// out of the beat faster is shed on the ground, and a hop carried into it flies off the square's far edge. So every
-/// beat starts from run speed, and its slope is the one place its speed is made. The row descends where beats descend
-/// (nothing climbs back up: no uphill exits); the kill floor and the city vista follow it. Scene:
+/// the beat, five metres of floor after it, and a BEND (2026-11-04; the user: "replace the gym's sharp 90 degree
+/// settle corners with flowing turns that carry speed"): ninety degrees as six facets of fifteen, pitched a little
+/// downhill, a facade round the outside, left and right by turns, so the row is a staircase of legs and never a
+/// straight. The bend carries what the beat handed on, as a real level would (VHOLUME's bends are slight ramps a
+/// run holds its speed round; the beat log, 2026-11-04): the speed a beat is entered with is now the player's own
+/// business, and every beat's short landing and portal are where too much of it is punished. The settle squares
+/// that shed everything to run speed (2026-10-29) are gone. The row descends where beats descend and a little at
+/// every bend (nothing climbs back up: no uphill exits); the kill floor and the city vista follow it. Scene:
 /// Assets/Scenes/BeatGym.unity (LevelKind.BeatGym); the finish at the end of the row.
 /// </summary>
 public static class BeatGymBuilder
 {
-    const float BaseY = 40f, HalfW = 5f, PadHalfW = 2.5f, SlopeDeg = 12f, GroundBelow = 220f;   // the row descends about 170 m; the ground stays under the kill floor
+    const float BaseY = 40f, HalfW = 5f, PadHalfW = 2.5f, SlopeDeg = 12f, GroundBelow = 340f;   // the row descends about 260 m (the beats' own drops and 2.6 m a bend); the ground stays under the kill floor
     const float FacadeLook = 14f, GateLook = 15f;
     /// The validator's check: build the gym with the safe wall heights real levels use, not the 14 m look (LevelValidator.ValidateGymPlainWalls)
     public static bool PlainWalls;
@@ -35,11 +37,11 @@ public static class BeatGymBuilder
         // the start: a floor, the first checkpoint, the gym's sign
         f.Deck(0f, 12f, 0f, HalfW + 2f, "Start");
         f.Checkpoint("THE GYM", 2f, 0f, HalfW + 2f);
-        f.Sign(0f, 4.5f, 8f, "THE BEAT GYM\nevery beat three times, a reset pad before each, a corner after\nF9 stop · F10 snag · F11 flow", 0.9f);
+        f.Sign(0f, 4.5f, 8f, "THE BEAT GYM\nevery beat three times, a reset pad before each, a bend after\nF9 stop · F10 snag · F11 flow", 0.9f);
         f.Lamp(0f, 6f, 7f);
         Vector3 spawn = f.P(0f, 0f, 3f);
         f.Advance(12f, 0f);
-        Corner(f, -1f);   // the first beat starts from run speed too (left, so the beats' own corners alternate right, left, right…)
+        Bend(f, -1f);   // left first, so the beats' own bends alternate right, left, right…
 
         int index = 0;
         foreach (var beat in BeatLibrary.All)
@@ -60,12 +62,12 @@ public static class BeatGymBuilder
         return spawn;
     }
 
-    /// One beat at one difficulty: the pad, the sign, the slope that makes its speed, the beat, the floor after, the corner
+    /// One beat at one difficulty: the pad, the sign, the slope that makes its speed, the beat, the floor after, the bend
     static void One(Frame f, Beat beat, int d, int index)
     {
         float s = beat.EntrySpeed(f.v, d);
         string title = beat.Name + " " + BeatMath.Roman(d);
-        f.Deck(0f, 8f, 0f, PadHalfW, "ResetDeck"); f.Line(0f, 0.5f, 7.5f, 0f);   // five metres wide: a hop over the corner's block finds no deck beside it
+        f.Deck(0f, 8f, 0f, PadHalfW, "ResetDeck"); f.Line(0f, 0.5f, 7.5f, 0f);   // five metres wide: the bend's wide floor narrows to the pad, and a hop off the bend's side finds no deck
         f.Checkpoint(title, 1.5f, 0f, PadHalfW);
         bool slope = s > f.v.baseRunSpeed + 0.5f;
         f.Sign(0f, 4f, 4.5f, title + "\n" + beat.Note(f.v, d) + (slope ? "\nSLIDE the slope ahead to arrive at " + s.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " m/s" : ""), 0.8f);
@@ -79,23 +81,36 @@ public static class BeatGymBuilder
             f.Advance(dz, -drop);
         }
         beat.Build(f, d);
-        Corner(f, index % 2 == 0 ? 1f : -1f);
+        Bend(f, index % 2 == 0 ? 1f : -1f);
     }
 
-    /// THE SETTLE CORNER: five metres of floor and a twelve-metre square the line turns on (right for `side` 1, left for
-    /// -1), with a BLOCK on the inside of the turn, eight metres deep and reaching past the square's side, and the next
-    /// leg a five-metre deck leaving the square's far strip. The block and the narrow deck are sized so that no hop from
-    /// the floor before the square lands on the leg (the validator's snowball checks every such skip): the way round is
-    /// a landing on the far strip and a ground turn, and a hop carried into the square meets the block or the void
-    static void Corner(Frame f, float side)
+    /// THE BEND: five metres of floor, then ninety degrees (right for `side` 1, left for -1) as six facets of fifteen
+    /// degrees, each 5.5 m long and pitched 4° down (VHOLUME's bends are slight ramps; never an uphill exit), a FACADE
+    /// along the outside the whole way round (a wall run round the outside is the fast way: "walls are the gain"), the
+    /// lit line down the middle, a lamp at the apex, and a four-metre straight at the same pitch so the last joint is
+    /// flush with the floor that follows. The facets overlap a little at their joints so the outer edge has no hole
+    /// (the TURN beat's curve, the same sums). A run holds its speed round it, a slide gains a little, a hop chain has
+    /// to be steered fifteen degrees a facet, two or three facets a hop; nothing here sheds speed on purpose any more
+    static void Bend(Frame f, float side)
     {
+        const int segs = 6; const float each = 15f, segLen = 5.5f, pitch = 4f, exitLen = 4f;
         f.Deck(0f, 5f, 0f, HalfW, "After"); f.Line(0f, 0.5f, 4.5f, 0f);
-        f.Deck(5f, 17f, 0f, HalfW, "SettleCorner"); f.Line(0f, 5.5f, 15f, 0f);
-        f.Mass(side > 0f ? 1f : -9f, side > 0f ? 9f : -1f, -0.5f, f.facadeHeight, 5f, 13f, "SettleBlock");   // rooftop machinery, as tall as a facade: a run up its face finds no top (the lift reaches eleven metres)
-        f.Lamp(0f, 5f, 15f);
-        f.Advance(15f, 0f);
-        f.Turn(side * 90f);
-        f.Line(0f, 0f, 4.5f, 0f);
         f.Advance(5f, 0f);
+        float over = HalfW * Mathf.Tan(each * 0.5f * Mathf.Deg2Rad) * 0.5f + 0.2f;   // the joints overlap a little so the outer edge has no hole
+        float lift = over * Mathf.Tan(pitch * Mathf.Deg2Rad);   // the overlap keeps the pitch: the top at z = 0 is exactly the origin's height
+        float segDrop = segLen * BeatMath.Sin(pitch), segDz = segLen * BeatMath.Cos(pitch);
+        float outer = -side * (HalfW + 0.6f);   // the outside of a right turn is the left
+        for (int i = 0; i < segs; i++)
+        {
+            f.Slope(-over, lift, segDz + over, -segDrop - lift, HalfW, "BendDeck");
+            f.Wall(outer, -over, segDz + over, 0.3f, 4f);
+            f.LineRun(0f, 0f, 0f, segDz, -segDrop);
+            if (i == 2) f.Lamp(0f, 5f, segDz);
+            f.Advance(segDz, -segDrop);
+            f.Turn(side * each);
+        }
+        float exitDrop = exitLen * Mathf.Tan(pitch * Mathf.Deg2Rad);
+        f.Slope(-over, lift, exitLen, -exitDrop, HalfW, "BendExit"); f.LineRun(0f, 0f, 0f, exitLen, -exitDrop);   // one more pitch of the same slope, straight: the joint stays flush
+        f.Advance(exitLen, -exitDrop);
     }
 }
