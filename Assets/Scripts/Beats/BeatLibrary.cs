@@ -39,20 +39,23 @@ public abstract class Beat
     protected static string F0(float x) => x.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
 }
 
-/// GAP JUMP: a four-metre launch, a gap at 70 / 80 / 90% of the reach at the expected speed, a SHORT LANDING (7 / 6 / 5 m)
-/// with a portal at its end: the arc the beat is sized for lands on the first half of it; an arc a few metres a second
-/// faster is still up at the lintel and stops against it
+/// GAP JUMP: a four-metre launch, a gap at 70 / 80 / 90% of the reach at the expected speed, a SHORT LANDING (4 / 6 / 5 m)
+/// with a SLOT at its end (2026-11-04; the user: "every jump sequence mixes in at least one other move"): a gate whose
+/// opening is 1.25 m, so the landing is a jump, a touch-down and a SLIDE through, in rhythm. The arc the beat is sized
+/// for lands on the first half of the landing; an arc a few metres a second faster is still up at the gate and stops
+/// against it, and a hop after the landing is a stop too: only the slide goes through (VHOLUME enters its tunnels under
+/// a low beam the same way: the slot after the open gap is the tight beat after the open one)
 public class GapJump : Beat
 {
     public override string Name => "GAP JUMP";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, v.baseRunSpeed, 12f, 16f);
-    public override string Note(LevelMetricsMath.Values v, int d) { float s = EntrySpeed(v, d), dy = Pick(d, 0f, -1f, -2f); return "a gap of " + F1(BeatMath.Gap(v, s, dy, Pick(d, 0.7f, 0.8f, 0.9f))) + " m at " + F0(s) + " m/s · land BEFORE the portal"; }
+    public override string Note(LevelMetricsMath.Values v, int d) { float s = EntrySpeed(v, d), dy = Pick(d, 0f, -1f, -2f); return "a gap of " + F1(BeatMath.Gap(v, s, dy, Pick(d, 0.7f, 0.8f, 0.9f))) + " m at " + F0(s) + " m/s · land, then SLIDE the slot"; }
     public override float Build(Frame f, int d)
     {
         float s = EntrySpeed(f.v, d), dy = Pick(d, 0f, -1f, -2f), gap = BeatMath.Gap(f.v, s, dy, Pick(d, 0.7f, 0.8f, 0.9f)), land = Pick(d, 4f, 6f, 5f);   // the lintel takes the arc at about 1.4× the sized speed
         f.Deck(0f, 4f, 0f, HalfW, "Launch"); f.Line(0f, 0.5f, 3.5f, 0f);
         f.Deck(4f + gap, 4f + gap + land, dy, HalfW, "Landing"); f.Line(0f, 4.5f + gap, 3.5f + gap + land, dy);
-        f.Portal(4f + gap + land, dy, HalfW);
+        f.Portal(4f + gap + land, dy, HalfW, 1.25f, 2.25f);   // the slot: a run or a hop stops here, a slide passes
         f.Advance(4f + gap + land, dy);
         return s;
     }
