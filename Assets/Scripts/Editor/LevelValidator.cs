@@ -1076,7 +1076,7 @@ public static class LevelValidator
             }
             // trivial: a plain jump at the speed the snowball arrives with lands clean, well over the sized speed
             int padFate = Fate(g, v, e, Yp, Move.Jump, out string padWhat), carFate = Fate(g, v, e, Yc, Move.Jump, out string carWhat);
-            bool control = Q.name.StartsWith("Control") || Q.name.StartsWith("Settle") || Q.name.StartsWith("Bend");   // a landing that is itself a control piece (a square to turn on, a kink pad) is meant to take the arc; what follows it is the test
+            bool control = Q.name.StartsWith("Control") || Q.name.StartsWith("Settle") || Q.name.StartsWith("Bend") || Q.name == "ResetDeck";   // the gym's reset pad too: a pip across a bend's inside onto the next pad skips only the bend; the beat after the pad is the test   // a landing that is itself a control piece (a square to turn on, a kink pad) is meant to take the arc; what follows it is the test
             bool padTrivial = padFate == 0 && Yp >= TrivialOver * sized && !control;
             bool carTrivial = carFate == 0 && Yc >= TrivialOver * sized && !control;
             string gapWord = (skip ? "THE SKIP " : "") + "'" + P.name + "' → '" + Q.name + "', " + MoveWord(e) + " " + UpDown(e.dy) + ", sized " + sized.ToString("0", Ci) + " m/s";
@@ -1163,7 +1163,7 @@ public static class LevelValidator
             var lift = LevelMetricsMath.WallLift(v, v.jumpImpulse, w.top - attachY, cornice);
             float reachY = attachY + lift.afterDouble;
             var r = new LiftReport { wall = w.name, segment = segOf.TryGetValue(P.id, out string s) ? s : "off the line", from = P.name, at = w.c, wallHeight = w.top - w.bottom, length = w.halfLen * 2f, floorY = floorY, cornice = cornice, rise = lift.rise, afterJump = lift.afterJump, afterDouble = lift.afterDouble, reachY = reachY, toTop = lift.toTop };
-            var names = new Dictionary<string, int>();
+            var names = new Dictionary<string, int>(); var whereAt = new Dictionary<string, string>();
             foreach (var p in g.plats)
             {
                 if (p == P || p.col == P.col || p.name == "Cornice" || p.name.EndsWith("Body") || p.name.StartsWith("Hidden")) continue;   // a hidden line's pieces are reached from its own wall by design
@@ -1172,9 +1172,10 @@ public static class LevelValidator
                 if (top < floorY + 1.5f || top > reachY + 0.1f) continue;
                 if (!InWallsReach(w, p)) continue;
                 string label = p.col == w.col ? "the wall's own top (" + Mathf.Min(p.Width, p.Depth).ToString("0.0", Ci) + " m wide)" : "'" + p.name + "'";
+                if (!names.ContainsKey(label)) whereAt[label] = " (at " + Fmt(p.Centre) + ", top " + top.ToString("0.0", Ci) + ", the floor here " + floorY.ToString("0.0", Ci) + ")";   // where the first of them is: a facet the walker hopped over is not in the line's order and cannot be told behind from ahead by it
                 names[label] = names.TryGetValue(label, out int n) ? n + 1 : 1;
             }
-            foreach (var kv in names) r.reaches.Add(kv.Value > 1 ? kv.Key + " ×" + kv.Value : kv.Key);
+            foreach (var kv in names) r.reaches.Add((kv.Value > 1 ? kv.Key + " ×" + kv.Value : kv.Key) + whereAt[kv.Key]);
             res.lifts.Add(r);
             if (r.reaches.Count == 0 || !orderOf.ContainsKey(P.id)) continue;   // a wall beside a floor the line never stands on is noted, not a finding
             res.liftSkips++;
@@ -1361,7 +1362,7 @@ public static class LevelValidator
                     if (prevE != null)
                     {
                         Vector3 pd = prevE.b - prevE.a; pd.y = 0f;
-                        bool meant = P.name.StartsWith("Settle") || P.name.StartsWith("Control");   // the gym's settle corners and the control beat's kinks turn on purpose: the turn IS the test
+                        bool meant = P.name.StartsWith("Settle") || P.name.StartsWith("Control") || P.name.StartsWith("Way") || Q.name.StartsWith("Way");   // the skip's long way (Way…) is built slow: its turns are the price of the safe line   // the gym's settle corners and the control beat's kinks turn on purpose: the turn IS the test
                         if (pd.sqrMagnitude > 1e-3f && Vector3.Angle(pd.normalized, dir) >= 60f && !meant)
                         {
                             bool wallAhead = WallAhead(g, e.a, pd.normalized, P.YAt(e.a.x, e.a.z));
