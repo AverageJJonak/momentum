@@ -24,7 +24,7 @@ public static class DecoKit
     public const float FacadeRelief = 0.15f;
     /// How far a piece that is not sunk stands off its box's face: never two faces on one plane
     public const float Proud = 0.05f;
-    public const int Layer = 2;   // Ignore Raycast: drawn, never cast against, never welded
+    public const int Layer = 0;   // Default: the level welder combines the pieces (one draw per material per 40 m cell); without colliders nothing casts against them anyway
 
     static readonly Dictionary<string, GameObject> cache = new Dictionary<string, GameObject>();
     static readonly HashSet<string> missing = new HashSet<string>();
@@ -45,7 +45,7 @@ public static class DecoKit
     }
 
     /// Forgets what was and was not found, so a piece dropped into Resources/Models during a session is seen on the next build
-    public static void Reload() { cache.Clear(); missing.Clear(); }
+    public static void Reload() { cache.Clear(); missing.Clear(); trim = null; }
 
     /// Places a piece with its pivot at `pos`, facing `rot` (the piece's +Z out of the wall or up the line, +Y up): the prefab
     /// when it exists, a stand-in box of `standInSize` (its base at the pivot, centred on x, extending along +Z) when asked,
@@ -126,8 +126,33 @@ public static class DecoKit
             case "Suede": return RigDesign.Suede;
             case "Sleeve": return RigDesign.Charcoal;
             case "Cuff": return LevelKit.Cream;
+            case "Trim": return TrimMaterial();   // the kit's shared trim sheet, when its textures are beside the pieces
             default: return null;
         }
+    }
+
+    static Material trim;
+    /// THE TRIM SHEET: one material for the whole kit from the textures dropped beside the pieces (Resources/Models/trim_albedo,
+    /// trim_normal, trim_mask with metallic in R and smoothness in A, trim_emission), on the kit's own lit template so it shades
+    /// like every other textured surface of the game. Null until trim_albedo exists: the modeller's own material then stays
+    public static Material TrimMaterial()
+    {
+        if (trim != null) return trim;
+        var albedo = Resources.Load<Texture2D>("Models/trim_albedo");
+        if (albedo == null) return null;
+        bool full = LevelKit.Template("LitFull") != null;
+        var m = LevelKit.FromTemplate(full ? "LitFull" : "LitNormalMap", "Universal Render Pipeline/Lit");
+        m.name = "Trim";
+        m.SetColor("_BaseColor", Color.white);
+        m.SetTexture("_BaseMap", albedo);
+        var normal = Resources.Load<Texture2D>("Models/trim_normal");
+        if (normal != null) { m.SetTexture("_BumpMap", normal); m.SetFloat("_BumpScale", 1f); m.EnableKeyword("_NORMALMAP"); }
+        var mask = Resources.Load<Texture2D>("Models/trim_mask");
+        if (mask != null && full) { m.SetTexture("_MetallicGlossMap", mask); m.SetFloat("_Smoothness", 1f); m.SetFloat("_Metallic", 1f); m.EnableKeyword("_METALLICSPECGLOSSMAP"); }
+        var emission = Resources.Load<Texture2D>("Models/trim_emission");
+        if (emission != null) { m.SetTexture("_EmissionMap", emission); m.SetColor("_EmissionColor", Color.white * 2f); m.EnableKeyword("_EMISSION"); m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive; }
+        trim = m;
+        return m;
     }
 
     static Material standInMat;
