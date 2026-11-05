@@ -34,7 +34,8 @@ sizes to match, so the skinned hand sits where the primitives sit: palm about 8.
 - slots: `Sleeve` (charcoal), `Cuff` (cream), `Brass` (cufflink and knuckles), `Suede` (the glove)
 - budget: up to about 6k triangles an arm, four weights a vertex max, only deform bones in the export, no leaf bones
 - rest pose = the rigs rest pose from the json notes, fingers relaxed, and please keep the knuckles continuing the forearms line in the fist, the ik puts the elbow where the wrist asks
-- one fbx with both arms is ideal, or one per side named `arm_R` / `arm_L`
+- one fbx per side named `arm_R` / `arm_L`, pivot at the camera (the rigs root), bones named exactly as above
+- LEAVE THE BRASS KNUCKLES OUT, the game draws its own on the `Fist` socket and recolours them, so just pose the fist as if they were there
 
 if you do nothing else, do this, it changes how the whole game looks.
 
@@ -48,7 +49,7 @@ in the order they matter:
 |---|---|---|---|---|
 | 1 | cornice / string course | 1 m long, 0.5 m proud, 0.4 m tall | end to end along a wall | plus an outside corner and an inside corner. this is the ledge the player will vault and grind along, so the top is a clean flat strip at least 0.3 m deep with a rounded nose |
 | 2 | fluted facade panel | 2 m wide, 4 m tall, 10 to 15 cm relief | both ways | vertical flutes or ribs, the player wall runs these, so nothing sticks out more than 15 cm. three variants: plain flutes, flutes with a chevron frieze band at the top, and a WINDOW BAND with recessed panes on a `Glass` slot so I can light the windows warm |
-| 3 | gate | post 0.6 × 0.6 m footprint, lintel 1 m deep × 1 m tall | post tiles in height, lintel end to end | a base, a tileable shaft, a cap for the post. a sunburst or chevron transom panel 2 m wide × 1 m tall that sits over the opening. the openings are 2.2 m and 1.25 m high, the same pieces do both |
+| 3 | gate | post 0.7 m wide × 1.0 m deep × 1 m tall, lintel 1 m long × 1 m tall × 1 m deep | post tiles in height, lintel end to end | a base, a tileable shaft, a cap for the post. a sunburst or chevron transom panel 2 m wide × 1 m tall that sits over the opening. the openings are 2.2 m and 1.25 m high, the same pieces do both |
 | 4 | lamp standard | 4 m tall, post 25 cm across | no | bronze, a stepped deco lantern or globe on top on a `Lit` slot. the lower 2.5 m of the post must be a plain straight cylinder, the player swings round it |
 | 5 | setback crown with a spire | footprints 6, 10 and 16 m square, 8 to 20 m tall | no | three to five steps and a brass finial, these are the landmarks you see from far away. abstract, no bat, no owl, nothing from a comic |
 | 6 | statue on a plinth | 3.5 m overall | no | the plinth a plain round column 50 cm across and 2 m tall (another swing anchor), the figure on top abstract and bronze, a stylised worker, a winged figure, a torch bearer, that kind of thing |
