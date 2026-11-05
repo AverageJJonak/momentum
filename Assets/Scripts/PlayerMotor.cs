@@ -60,6 +60,7 @@ public class PlayerMotor : MonoBehaviour
     float jumpBufferedUntil = float.NegativeInfinity;
     float lastJumpPressTime = float.NegativeInfinity;
     float slideStartTime = float.NegativeInfinity;
+    float lastCrouchPressTime = float.NegativeInfinity; bool crouchHeldLast;   // TIMING GRADES (STEP 2): the crouch press, on the physics clock, for the slide entry's grade
     float dashEndTime = float.NegativeInfinity;
     float dashStartTime = float.NegativeInfinity;
     float slamLandTime = float.NegativeInfinity;
@@ -162,6 +163,7 @@ public class PlayerMotor : MonoBehaviour
         lastGroundedTime = float.NegativeInfinity;
         landTime = float.NegativeInfinity;
         slideStartTime = float.NegativeInfinity;
+        lastCrouchPressTime = float.NegativeInfinity;
         slamLandTime = float.NegativeInfinity;
         dashStartTime = float.NegativeInfinity;
         lipContactTime = float.NegativeInfinity;
@@ -421,6 +423,8 @@ public class PlayerMotor : MonoBehaviour
 
         var kb = Keyboard.current;
         crouchHeld = Keybinds.Held(GameAction.Crouch);
+        if (crouchHeld && !crouchHeldLast) lastCrouchPressTime = Time.time;   // TIMING GRADES (STEP 2): the press is the rising edge, stamped here so it shares the landing's clock
+        crouchHeldLast = crouchHeld;
 
         hSpeedTickStart = HorizontalSpeed;
         attributedGain = 0f;
@@ -595,7 +599,26 @@ public class PlayerMotor : MonoBehaviour
         {
             sliding = true;
             slideStartTime = Time.time;
-            MovementEvents.Emit(MoveType.Slide);
+            string entry = null;
+            if (config.gradesEnabled && Time.time - landTime <= config.slideEntryGradeSpan)
+            {
+                // TIMING GRADES (STEP 2, 2026-11-04): THE ENTRY, the crouch press against the landing; a perfect entry pays a little as the
+                // slide begins, a good one a fraction of that, a late one nothing new. A slide that begins long after a landing was not timed to it: ungraded
+                float miss = lastCrouchPressTime - landTime;
+                var grade = TimingGrades.Of(Mathf.Abs(miss), config.slideEntryPerfectWindow, config.slideEntryPerfectWindow + config.gradeGoodBand);
+                float frac = TimingGrades.Fraction(config, grade);
+                if (frac > 0f)
+                {
+                    float hBeforeEntry = HorizontalSpeed;
+                    float mult = 1f + (config.slideEntryPerfectMultiplier - 1f) * frac * StyleSystem.GainScale(MoveType.Slide);
+                    velocity = new Vector3(velocity.x * mult, velocity.y, velocity.z * mult);
+                    Attribute(hBeforeEntry);
+                    entry = $"{TimingGrades.Label(grade)} ENTRY ×{mult:0.00}  {miss * 1000f:+0;-0} ms";
+                }
+                else entry = $"{TimingGrades.Label(grade)} ENTRY  {miss * 1000f:+0;-0} ms";
+                TimingGrades.Report(config, MoveType.Slide, grade);
+            }
+            MovementEvents.Emit(MoveType.Slide, entry);
         }
     }
 
