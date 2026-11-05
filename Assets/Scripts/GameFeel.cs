@@ -218,12 +218,14 @@ public class GameFeel : MonoBehaviour
     void OnEnable()
     {
         MovementEvents.MoveExecuted += OnMove;
+        TimingGrades.Graded += OnGrade;   // TIMING GRADES (STEP 2): a sound per grade
         ResetDetector.ResetFired += OnReset;
     }
 
     void OnDisable()
     {
         MovementEvents.MoveExecuted -= OnMove;
+        TimingGrades.Graded -= OnGrade;
         ResetDetector.ResetFired -= OnReset;
         if (Instance == this) Instance = null;
         if (Time.timeScale < 1f) Time.timeScale = 1f; // never strand a hitstop across scene loads
@@ -313,6 +315,19 @@ public class GameFeel : MonoBehaviour
     void Burst(float amount) => speedLineBurst = Mathf.Max(speedLineBurst, amount);
     void Kick(float amount) { if (look != null) look.AddFovKick(amount); }
     void Shake(float amount) { if (look != null) look.AddShake(amount); }
+
+    /// TIMING GRADES (STEP 2, 2026-11-04): a sound per grade over the move's own: a short high chime for PERFECT, a click for
+    /// GOOD, a dull tick for LATE (off with the config's gradeSounds; the perfect hop keeps its kick and burst as before)
+    void OnGrade(MoveType move, TimingGrade grade)
+    {
+        if (!TimingGrades.Sounds) return;
+        switch (grade)
+        {
+            case TimingGrade.Perfect: Play("bell", 0.28f, 1.9f); break;
+            case TimingGrade.Good: Play("click", 0.4f, 1.25f); break;
+            default: Play("leather", 0.22f, 0.75f); break;
+        }
+    }
 
     void OnMove(MoveType type, string detail)
     {
