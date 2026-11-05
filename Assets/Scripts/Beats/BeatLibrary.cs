@@ -240,6 +240,7 @@ public class Skip : Beat
         // the long way: a floor out to the right from the launch, a slope forward and down beside the gap, a floor back in to the landing
         f.Mass(HalfW - 0.2f, outX + laneW, -1f, 0f, 1f, 4f, "WayOut", LevelKit.Floor); f.Body(HalfW - 0.2f, outX + laneW, -1.05f, 1f, 4f, "WayOutBody");
         f.Slope(4f, 0f, 6f + gap, -1f, laneW, "WayAlong", outX);
+        for (float pz = 12f; pz < 6f + gap - 3f; pz += 8f) f.Portal(pz, -(pz - 4f) / (2f + gap), laneW - 0.2f, 2.2f, 5.5f, false, true, outX);   // the long way is a COLONNADE (2026-11-04): a lintel every eight metres along it caps a hop chain near 11 m/s, as the fork's safe side does; the validator read the longer way as a straight that snowballs
         f.Mass(HalfW - 0.2f, outX + laneW, -2f, -1f, 6f + gap, 8.5f + gap, "WayBack", LevelKit.Floor); f.Body(HalfW - 0.2f, outX + laneW, -2.05f, 6f + gap, 8.5f + gap, "WayBackBody");   // ends half a metre short of the landing's end, so the long way comes back onto the landing and not past it
         f.Advance(4f + gap + land, -1f);
         return s;
