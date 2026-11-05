@@ -942,7 +942,26 @@ public class PlayerMotor : MonoBehaviour
             velocity.y += config.wallRunEntryPop;
             airJumpsUsed = 0;
             airWallKicksUsed = 0; // a run is a fresh touch
-            MovementEvents.Emit(MoveType.WallRun, side < 0f ? "left" : "right");
+            string caught = null;
+            if (config.gradesEnabled)
+            {
+                // TIMING GRADES (STEP 2, 2026-11-04): THE CATCH, how soon the wall was reached after leaving the ground or the last
+                // wall; a perfect catch pays a little speed along the wall as the run begins, a good one a fraction of that, a late one nothing new
+                float since = Time.time - Mathf.Max(lastGroundedTime, Mathf.Max(lastWallJumpTime, wallRunEndTime));
+                var grade = TimingGrades.Of(since, config.wallCatchPerfectTime, config.wallCatchGoodTime);
+                float frac = TimingGrades.Fraction(config, grade);
+                if (frac > 0f)
+                {
+                    float hBeforeCatch = HorizontalSpeed;
+                    float mult = 1f + (config.wallCatchPerfectMultiplier - 1f) * frac * StyleSystem.GainScale(MoveType.WallRun);
+                    velocity = new Vector3(velocity.x * mult, velocity.y, velocity.z * mult);
+                    Attribute(hBeforeCatch);
+                    caught = $" · {TimingGrades.Label(grade)} CATCH ×{mult:0.00}  {since * 1000f:0} ms";
+                }
+                else caught = $" · {TimingGrades.Label(grade)} CATCH  {since * 1000f:0} ms";
+                TimingGrades.Report(config, MoveType.WallRun, grade);
+            }
+            MovementEvents.Emit(MoveType.WallRun, (side < 0f ? "left" : "right") + caught);
         }
         wallRunNormal = n;
         WallRunSide = side;
