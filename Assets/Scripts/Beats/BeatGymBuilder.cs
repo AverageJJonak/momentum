@@ -8,8 +8,8 @@ using UnityEngine;
 /// sized by the metrics to deliver exactly that speed when the beat wants more than a run (the sign says to slide it),
 /// the beat, five metres of floor after it, and a BEND (2026-11-04; the user: "replace the gym's sharp 90 degree
 /// settle corners with flowing turns that carry speed"): ninety degrees as six facets of fifteen, pitched a little
-/// downhill, a facade round the outside, left and right by turns, so the row is a staircase of legs and never a
-/// straight. The bend carries what the beat handed on, as a real level would (VHOLUME's bends are slight ramps a
+/// downhill, a facade round the outside, turned whichever way keeps the row a staircase of legs heading two ways (a TURN
+/// beat turns on its own; the bend after it brings the row back), so the row is never a straight and never doubles back. The bend carries what the beat handed on, as a real level would (VHOLUME's bends are slight ramps a
 /// run holds its speed round; the beat log, 2026-11-04): the speed a beat is entered with is now the player's own
 /// business, and every beat's short landing and portal are where too much of it is punished. The settle squares
 /// that shed everything to run speed (2026-10-29) are gone. The row descends where beats descend and a little at
@@ -41,12 +41,11 @@ public static class BeatGymBuilder
         f.Lamp(0f, 6f, 7f);
         Vector3 spawn = f.P(0f, 0f, 3f);
         f.Advance(12f, 0f);
-        Bend(f, -1f);   // left first, so the beats' own bends alternate right, left, right…
+        Bend(f, BendSide(f));   // left first; after that whichever way keeps the row a staircase
 
-        int index = 0;
         foreach (var beat in BeatLibrary.All)
             for (int d = 1; d <= 3; d++)
-                One(f, beat, d, index++);
+                One(f, beat, d);
 
         // the finish
         f.Deck(0f, 16f, 0f, HalfW + 2f, "FinishDeck"); f.Line(0f, 0.5f, 15.5f, 0f);
@@ -63,7 +62,7 @@ public static class BeatGymBuilder
     }
 
     /// One beat at one difficulty: the pad, the sign, the slope that makes its speed, the beat, the floor after, the bend
-    static void One(Frame f, Beat beat, int d, int index)
+    static void One(Frame f, Beat beat, int d)
     {
         float s = beat.EntrySpeed(f.v, d);
         string title = beat.Name + " " + BeatMath.Roman(d);
@@ -81,8 +80,14 @@ public static class BeatGymBuilder
             f.Advance(dz, -drop);
         }
         beat.Build(f, d);
-        Bend(f, index % 2 == 0 ? 1f : -1f);
+        Bend(f, BendSide(f));
     }
+
+    /// Which way the next bend turns: the row is a staircase of legs heading 0° (the start's way) and 270° (left of it), so
+    /// from 0° or 90° the bend turns left and from 180° or 270° it turns right. A TURN beat has already turned right on its
+    /// own; the bend after it brings the row back onto the staircase instead of doubling back (2026-11-04: alternating
+    /// by count, the bend after TURN II ran eleven metres under the bend before TURN I, its facades up through that floor)
+    static float BendSide(Frame f) { float h = Mathf.Repeat(f.yaw, 360f); return h < 135f || h >= 315f ? -1f : 1f; }
 
     /// THE BEND: five metres of floor, then ninety degrees (right for `side` 1, left for -1) as six facets of fifteen
     /// degrees, each 5.5 m long and pitched 4° down (VHOLUME's bends are slight ramps; never an uphill exit), a FACADE
