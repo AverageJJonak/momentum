@@ -1065,7 +1065,7 @@ public static class LevelValidator
             if (e.move == Move.Drop || e.gap < 1.5f) continue;
             var P = g.plats[e.from]; var Q = g.plats[e.to];
             float sized = Mathf.Max(seg.sized, e.speed);
-            if (skip && (Q.name.StartsWith("Settle") || Q.name.StartsWith("Bend") || Mathf.Max(Yp, Yc) < 0.8f * sized)) continue;   // a hop onto the settle square is the corner's own business; a skip the rider is nowhere near fast enough for is not news
+            if (skip && (Q.name.StartsWith("Settle") || Q.name.StartsWith("Bend") || P.name.StartsWith("Bend") || Mathf.Max(Yp, Yc) < 0.8f * sized)) continue;   // a hop onto the settle square, or from or onto a bend facet (a bend is cut by hopping round it; the beat after it is the test), is the corner's own business; a skip the rider is nowhere near fast enough for is not news
             Move how = HowOf(v, e, sized);
             // the move's tolerance: up from the sized speed until its landing is a lintel or nothing
             float tol = SnowballCap; string then = null;
