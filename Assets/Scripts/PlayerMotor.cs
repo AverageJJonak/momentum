@@ -782,6 +782,24 @@ public class PlayerMotor : MonoBehaviour
                     v.z *= mult;
                     pendingEmit = MoveType.PerfectBhop;
                     pendingDetail = $"×{mult:0.00}  {missMs:+0;-0} ms";
+                    if (config.gradesEnabled) TimingGrades.Report(config, MoveType.PerfectBhop, TimingGrade.Perfect);   // TIMING GRADES (STEP 2): the chime
+                }
+                else if (config.gradesEnabled)
+                {
+                    // TIMING GRADES (STEP 2, 2026-11-04): outside the perfect window the press is GOOD inside the good band and
+                    // LATE past it; a good hop pays a fraction of the perfect gain, a late one the late fraction (0: the kept hop as before)
+                    var grade = TimingGrades.Of(Mathf.Abs(lastJumpPressTime - landTime), config.perfectBhopWindow, config.perfectBhopWindow + config.gradeGoodBand);
+                    float frac = TimingGrades.Fraction(config, grade);
+                    if (frac > 0f)
+                    {
+                        float mult = 1f + (PerfectTierMultiplier(config.perfectBhopSpeedMultiplier, config.perfectBhopMinMultiplier) - 1f) * frac * StyleSystem.GainScale(MoveType.PerfectBhop);
+                        v.x *= mult;
+                        v.z *= mult;
+                        pendingDetail = $"{TimingGrades.Label(grade)} ×{mult:0.00}  {missMs:+0;-0} ms";
+                    }
+                    else pendingDetail = $"{TimingGrades.Label(grade)}  {missMs:+0;-0} ms";
+                    pendingEmit = MoveType.Bhop;
+                    TimingGrades.Report(config, MoveType.Bhop, grade);
                 }
                 else
                 {
