@@ -1167,7 +1167,8 @@ public static class LevelValidator
             foreach (var p in g.plats)
             {
                 if (p == P || p.col == P.col || p.name == "Cornice" || p.name.EndsWith("Body") || p.name.StartsWith("Hidden")) continue;   // a hidden line's pieces are reached from its own wall by design
-                if (orderOf.TryGetValue(p.id, out int po) && orderOf.TryGetValue(P.id, out int fo) && po <= fo) continue;   // a floor of the line behind the player is no skip
+                int po = LineOrder(g, orderOf, p), fo = LineOrder(g, orderOf, P);
+                if (po >= 0 && fo >= 0 && po <= fo) continue;   // a floor of the line behind the player is no skip (a facet the walker hopped over borrows the place of the nearest floor it did stand on: two curves in a row reached each other's earlier, higher facets this way, 2026-11-04)
                 float top = p.YAt(p.Centre.x, p.Centre.z);
                 if (top < floorY + 1.5f || top > reachY + 0.1f) continue;
                 if (!InWallsReach(w, p)) continue;
@@ -1184,6 +1185,21 @@ public static class LevelValidator
                 where = "Segment " + r.segment + ": '" + w.name + "' " + r.length.ToString("0", Ci) + " m long, " + r.wallHeight.ToString("0.0", Ci) + " m tall, beside '" + P.name + "' at " + Fmt(w.c) + (float.IsInfinity(cornice) ? ", nothing over the run" : ", a ceiling " + cornice.ToString("0.0", Ci) + " m over it") + ".",
                 why = "The run keeps the jump's rise and adds the entry pop under almost no gravity; the wall jump adds half of what is left; the wall touch refunds the pip. A cornice 3 m over the floor along the wall holds the lift to about 5 m; a wall that rises higher than the lift has no top to land on; or the motor could clamp the rise on entry." });
         }
+    }
+
+    /// Where a floor comes in the line's order; a floor the walker never stood on (a facet it hopped over) borrows the nearest
+    /// ordered floor's place within thirty metres; -1 when nothing ordered is near
+    static int LineOrder(Geometry g, Dictionary<int, int> orderOf, Plat p)
+    {
+        if (orderOf.TryGetValue(p.id, out int o)) return o;
+        int best = -1; float bd = float.MaxValue; Vector3 c = p.Centre;
+        foreach (var kv in orderOf)
+        {
+            if (kv.Key < 0 || kv.Key >= g.plats.Count) continue;
+            float d = (g.plats[kv.Key].Centre - c).sqrMagnitude;
+            if (d < bd) { bd = d; best = kv.Value; }
+        }
+        return bd <= 30f * 30f ? best : -1;
     }
 
     /// Whether a floor lies where a run along the wall and the jumps off it can come down: along the wall's line, up
