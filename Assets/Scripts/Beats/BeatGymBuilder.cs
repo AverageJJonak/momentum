@@ -27,6 +27,7 @@ public static class BeatGymBuilder
     {
         LevelKit.Init();
         LevelKit.SetZone(Zone.Utopia);
+        DecoKit.BeginBuild();
         LevelSections.Begin(7, BaseY);
         var root = new GameObject("BeatGym").transform;
         var v = LevelMetrics.Read(config);
@@ -38,7 +39,7 @@ public static class BeatGymBuilder
         f.Deck(0f, 12f, 0f, HalfW + 2f, "Start");
         f.Checkpoint("THE GYM", 2f, 0f, HalfW + 2f);
         f.Sign(0f, 4.5f, 8f, "THE BEAT GYM\nevery beat three times, a reset pad before each, a bend after\nF9 stop · F10 snag · F11 flow", 0.9f);
-        f.Lamp(0f, 6f, 7f);
+        f.Lamp(0f, 6f, 7f); f.LampPost(HalfW + 2.4f, 0f, 7f);
         Vector3 spawn = f.P(0f, 0f, 3f);
         f.Advance(12f, 0f);
         Bend(f, BendSide(f));   // left first; after that whichever way keeps the row a staircase
@@ -50,7 +51,7 @@ public static class BeatGymBuilder
         // the finish
         f.Deck(0f, 16f, 0f, HalfW + 2f, "FinishDeck"); f.Line(0f, 0.5f, 15.5f, 0f);
         f.Checkpoint("THE END", 2f, 0f, HalfW + 2f);
-        f.Sign(0f, 4.5f, 8f, "THE END OF THE ROW", 1.2f);
+        f.Sign(0f, 4.5f, 8f, "THE END OF THE ROW", 1.2f); f.LampPost(HalfW + 2.4f, 0f, 8f);
         LevelSections.Last.finishPortal = f.P(0f, 2f, 12f);
         LevelSections.Last.spawn = spawn;
         LevelSections.Last.length = Vector3.Distance(spawn, f.origin);
@@ -58,6 +59,7 @@ public static class BeatGymBuilder
         var foot = f.built; foot.Expand(new Vector3(120f, 60f, 120f));
         CityVista.Override = foot;
         CityVista.Suppressed = true;   // a test rig, not a place: no skyline round two kilometres of row (it would be thousands of blocks)
+        if (DecoKit.Enabled) Debug.Log("BeatGym " + DecoKit.Report());
         return spawn;
     }
 
@@ -70,7 +72,7 @@ public static class BeatGymBuilder
         f.Checkpoint(title, 1.5f, 0f, PadHalfW);
         bool slope = s > f.v.baseRunSpeed + 0.5f;
         f.Sign(0f, 4f, 4.5f, title + "\n" + beat.Note(f.v, d) + (slope ? "\nSLIDE the slope ahead to arrive at " + s.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " m/s" : ""), 0.8f);
-        f.Lamp(0f, 6f, 5f);
+        f.Lamp(0f, 6f, 5f); f.LampPost(PadHalfW + 0.4f, 0f, 5f);   // the standard beside the pad, off its right edge
         f.Advance(8f, 0f);
         if (slope)
         {
@@ -108,9 +110,9 @@ public static class BeatGymBuilder
         for (int i = 0; i < segs; i++)
         {
             f.Slope(-over, lift, segDz + over, -segDrop - lift, HalfW, "BendDeck");
-            f.Wall(outer, -over, segDz + over, 0.3f, 4f);
+            f.Wall(outer, -over, segDz + over, 0.3f, 4f, "KickWall", 0f, segDz);   // dressed over the facet alone, not the overlaps
             f.LineRun(0f, 0f, 0f, segDz, -segDrop);
-            if (i == 2) f.Lamp(0f, 5f, segDz);
+            if (i == 2) { f.Lamp(0f, 5f, segDz); f.LampPost(side * (HalfW + 0.4f), -segDrop, segDz); }   // the apex lamp, its standard on the inside edge
             f.Advance(segDz, -segDrop);
             f.Turn(side * each);
         }

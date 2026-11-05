@@ -122,12 +122,36 @@ public class Frame
 
     /// A wall to run: a metre thick, along z at `x`, standing from `yBottom` up `height`. Named for the validator. With a
     /// ground it is a FACADE: twelve metres tall at least (nothing a run's lift can reach has a top) on a building below
-    public GameObject Wall(float x, float z0, float z1, float yBottom, float height, string name = "KickWall")
+    public GameObject Wall(float x, float z0, float z1, float yBottom, float height, string name = "KickWall", float dress0 = float.NaN, float dress1 = float.NaN)
     {
         float h = Structural ? Mathf.Max(height, facadeHeight) : height;
         var band = Box(P(x, yBottom + h * 0.5f, (z0 + z1) * 0.5f), new Vector3(1f, h, z1 - z0), LevelKit.Wall, name, Rot);
         Body(x - 0.5f, x + 0.5f, yBottom - 0.05f, z0, z1, "FacadeBody");
+        DressFacade(x, float.IsNaN(dress0) ? z0 : dress0, float.IsNaN(dress1) ? z1 : dress1, yBottom, h);   // the span to dress: a bend passes its facet without the overlaps
         return band;
+    }
+
+    /// THE DRESSING of a run wall (DecoKit, 2026-11-05; the modeller's brief): fluted panels 2 × 4 m over the face toward the
+    /// line, sunk so their ribs stand only 5 cm off the collider the player runs on (the box's face fills the grooves), as
+    /// many whole panels as fit, centred; the top row a window band when there is more than one; a cornice along the top
+    /// edge, proud. Nothing is placed while the pieces are not in Resources/Models
+    void DressFacade(float x, float z0, float z1, float yBottom, float h)
+    {
+        if (!DecoKit.Enabled) return;
+        float side = x > 0f ? -1f : 1f;              // the face toward the line (x = 0)
+        float faceX = x + side * 0.5f;               // the band is a metre thick, centred on x
+        Quaternion rot = Quaternion.LookRotation(R * side, Vector3.up);
+        float len = z1 - z0;
+        int cols = Mathf.FloorToInt(len / 2f + 0.001f), rows = Mathf.FloorToInt(h / 4f + 0.001f);
+        float zStart = z0 + (len - cols * 2f) * 0.5f;
+        float panelX = faceX - side * (DecoKit.FacadeRelief - DecoKit.Proud);
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                DecoKit.Place(root, r == rows - 1 && rows > 1 ? "facade_window_2x4" : "facade_flute_2x4", P(panelX, yBottom + r * 4f, zStart + c * 2f + 1f), rot, new Vector3(2f, 4f, DecoKit.FacadeRelief));
+        int n = Mathf.FloorToInt(len + 0.001f);
+        float cStart = z0 + (len - n) * 0.5f;
+        for (int i = 0; i < n; i++)
+            DecoKit.Place(root, "cornice_1m", P(faceX + side * DecoKit.Proud, yBottom + h - 0.4f, cStart + i + 0.5f), rot, new Vector3(1f, 0.4f, 0.5f));
     }
 
     /// A wall across the line at `z`, from x0 to x1
@@ -149,12 +173,45 @@ public class Frame
         Mass(leftPost ? x - halfW - 0.1f : x0, rightPost ? x + halfW + 0.1f : x1, y + clear, y + top, z - d, z + d, "Lintel");
         if (leftPost) Mass(x0, x - halfW - 0.1f, foot, y + top, z - d, z + d, "Post");
         if (rightPost) Mass(x + halfW + 0.1f, x1, foot, y + top, z - d, z + d, "Post");
+        DressGate(z, y, x - halfW - 0.1f, x + halfW + 0.1f, clear, top, leftPost, rightPost);
+    }
+
+    /// THE DRESSING of a gate (DecoKit): a shaft tile per metre up each post from a metre under the floor (the body below
+    /// stays the dark building), a moulded lintel per metre over the opening hung 5 cm under the mass's underside, and the
+    /// transom over the middle of it on both faces
+    void DressGate(float z, float y, float openL, float openR, float clear, float top, bool leftPost, bool rightPost)
+    {
+        if (!DecoKit.Enabled) return;
+        int tiles = Mathf.Min(Mathf.FloorToInt(top + 1f), 16);
+        for (int i = 0; i < tiles; i++)
+        {
+            if (leftPost) DecoKit.Place(root, "gate_post_shaft", P(openL - 0.3f, y - 1f + i, z), Rot, new Vector3(0.7f, 1f, 1f), null, true);
+            if (rightPost) DecoKit.Place(root, "gate_post_shaft", P(openR + 0.3f, y - 1f + i, z), Rot, new Vector3(0.7f, 1f, 1f), null, true);
+        }
+        int n = Mathf.FloorToInt(openR - openL + 0.001f);
+        float s = openL + (openR - openL - n) * 0.5f;
+        for (int i = 0; i < n; i++) DecoKit.Place(root, "gate_lintel_1m", P(s + i + 0.5f, y + clear - DecoKit.Proud, z), Rot, new Vector3(1f, 1f, 1f), null, true);
+        if (top - clear < 2f) return;
+        for (int face = -1; face <= 1; face += 2)
+            DecoKit.Place(root, "gate_transom", P((openL + openR) * 0.5f, y + clear + 1f - DecoKit.Proud, z + face * (0.45f + DecoKit.Proud)), Quaternion.LookRotation(F * face, Vector3.up), new Vector3(2f, 1f, 0.1f));
     }
 
     /// A HOP STONE: a floor `wide` across and `deep` along the line, centred at (x, z), its top at y. Its depth is the
     /// landing's tolerance: the arc the stone is spaced for lands sixty percent of the way across it
     public GameObject Stone(float x, float z, float y, float wide, float deep, string name = "ControlStone")
-        => Deck(z - deep * 0.5f, z + deep * 0.5f, y, wide * 0.5f, name, x);
+    {
+        var stone = Deck(z - deep * 0.5f, z + deep * 0.5f, y, wide * 0.5f, name, x);
+        DecoKit.Place(root, "capital_3m", P(x, y - 1.05f, z), Rot, new Vector3(3f, 1f, 3f), new Vector3(wide / 3f * 1.03f, 1f, deep / 3f * 1.03f), true);   // the capital under the stone: its top 5 cm inside the slab, its sides 5 cm proud
+        return stone;
+    }
+
+    /// A LAMP STANDARD (DecoKit) just outside a deck's edge: the piece on a post of its own down to the ground, its base
+    /// 30 cm under the deck so the post's top is a drop and never a step. Dressing only: no collider of its own
+    public void LampPost(float x, float y, float z)
+    {
+        DecoKit.Place(root, "lamp_4m", P(x, y - 0.3f, z), Rot, new Vector3(0.25f, 4f, 0.25f), null, true);
+        Post(x, z, y - 0.3f, 0.4f);
+    }
 
     /// A BEAM: a floor `wide` across, from (x0, z0) to (x1, z1) along the frame's x or z (the other equal), its top at y;
     /// it ends exactly at its ends, so a pad it meets is touched and not overlapped. A walkway: posts under its ends
