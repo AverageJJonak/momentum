@@ -43,6 +43,7 @@ public partial class ArmRig
             h.sign = i == 0 ? 1f : -1f;
             BuildArm(h);
         }
+        BindSkinnedHands();
         Viewmodel.Apply(Root);
     }
 
@@ -127,6 +128,59 @@ public partial class ArmRig
         h.grip = new GameObject("Grip").transform;
         h.grip.SetParent(h.hand, false);
         h.grip.localPosition = new Vector3(0f, -0.024f, 0.058f);
+    }
+
+    /// THE MODELLED HANDS (2026-11-05; the modeller's brief, Docs/Art/MODELLER_BRIEF.md): when Resources/Models holds `arm_R`
+    /// and `arm_L`, each skinned mesh is bound to THIS rig's transforms by bone name (ShoulderR, ElbowR, HandR, F00…F32, T0, T1),
+    /// its slots become the game's materials, the glove and sleeve primitives are hidden and the brass knuckles under Fist stay the
+    /// game's own. A mesh with no bone of those names is dropped with a warning and the primitives stay. Off: viewmodelSkinnedHands
+    void BindSkinnedHands()
+    {
+        if (config != null && !config.viewmodelSkinnedHands) return;
+        for (int i = 0; i < 2; i++)
+        {
+            var h = hands[i];
+            string s = h.side == HandSide.Right ? "R" : "L";
+            var prefab = DecoKit.Prefab("arm_" + s);
+            if (prefab == null) continue;
+            var byName = new System.Collections.Generic.Dictionary<string, Transform>();
+            foreach (var t in h.hand.GetComponentsInChildren<Transform>(true)) byName[t.name] = t;   // the fingers, the thumb, the sockets
+            byName["Hand" + s] = h.hand; byName["Elbow" + s] = h.elbow; byName["Shoulder" + s] = h.shoulder;
+            var go = Instantiate(prefab, Root);
+            go.name = "Skin" + s;
+            go.transform.localPosition = Vector3.zero; go.transform.localRotation = Quaternion.identity; go.transform.localScale = Vector3.one;
+            int bound = 0, total = 0;
+            foreach (var smr in go.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                var bones = smr.bones;
+                for (int b = 0; b < bones.Length; b++)
+                {
+                    total++;
+                    if (bones[b] != null && byName.TryGetValue(bones[b].name, out var rigBone)) { bones[b] = rigBone; bound++; }
+                }
+                smr.bones = bones;
+                if (smr.rootBone != null && byName.TryGetValue(smr.rootBone.name, out var rb)) smr.rootBone = rb;
+                smr.updateWhenOffscreen = true;
+                smr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            if (bound == 0)
+            {
+                Debug.LogWarning("ArmRig: arm_" + s + " has no bone named like this rig (" + total + " bones seen): the primitives stay");
+                if (Application.isPlaying) Destroy(go); else DestroyImmediate(go);
+                continue;
+            }
+            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+            {
+                var mats = r.sharedMaterials;
+                for (int m = 0; m < mats.Length; m++) { var sm = DecoKit.Slot(mats[m] != null ? mats[m].name : ""); if (sm != null) mats[m] = sm; }
+                r.sharedMaterials = mats;
+            }
+            foreach (var t in go.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Viewmodel.Layer;
+            foreach (var part in new[] { h.shoulder, h.elbow, h.hand })
+                foreach (var r in part.GetComponentsInChildren<Renderer>(true))
+                    if (!r.transform.IsChildOf(h.fistNode)) r.enabled = false;
+            Debug.Log("ArmRig: arm_" + s + " bound, " + bound + " of " + total + " bones");
+        }
     }
 
     static Transform Ball(Transform parent, Vector3 pos, float diameter, Material mat)

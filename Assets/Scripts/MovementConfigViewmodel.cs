@@ -165,4 +165,6 @@ public partial class MovementConfig
     public float viewmodelMaulWindShare = 0.55f;
     public float viewmodelMaulFollowThrough = 0.18f;
     public float viewmodelMaulRecover = 0.3f;   // 2026-10-16 feel pass: matches the 0.4 swing cooldown (was 0.55)
+    [Tooltip("THE MODELLED HANDS: bind arm_R and arm_L from Resources/Models to the rig when they exist (Docs/Art/MODELLER_BRIEF.md); off keeps the primitive hands")]
+    public bool viewmodelSkinnedHands = true;
 }
