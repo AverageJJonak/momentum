@@ -1,6 +1,6 @@
 # momentum, the modelling brief
 
-hey, so the whole game is built out of boxes right now, every wall, floor, lamp and hand is a unity primitive with a flat toon material on it. it moves great and it reads fine from far away, but up close it has none of the detail the look needs. the look is 1930s art deco at night, black first, deep red and orange sky, warm sodium light, brass and gold accents, think the old animated gotham, but no dc names, logos or designs anywhere, it has to be our own city. the pictures in `Docs/Reference` are the mood.
+hey, so the whole game is built out of boxes right now, every wall, floor, lamp and hand is a unity primitive with a flat toon material on it. it moves great and it reads fine from far away, but up close it has none of the detail the look needs. the look is 1930s art deco at night, black first, deep red and orange sky, warm sodium light, brass and gold accents, think the old animated gotham. the pictures in `Docs/Reference` are the mood.
 
 what I need from you is in two parts, the hands first because theyre on screen every single frame, then a kit of deco dressing pieces that snap onto the boxes the levels are made of. everything below is in metres, 1 blender unit = 1 metre.
 
@@ -51,7 +51,7 @@ in the order they matter:
 | 2 | fluted facade panel | 2 m wide, 4 m tall, 10 to 15 cm relief | both ways | vertical flutes or ribs, the player wall runs these, so nothing sticks out more than 15 cm. three variants: plain flutes, flutes with a chevron frieze band at the top, and a WINDOW BAND with recessed panes on a `Glass` slot so I can light the windows warm |
 | 3 | gate | post 0.7 m wide × 1.0 m deep × 1 m tall, lintel 1 m long × 1 m tall × 1 m deep | post tiles in height, lintel end to end | a base, a tileable shaft, a cap for the post. a sunburst or chevron transom panel 2 m wide × 1 m tall that sits over the opening. the openings are 2.2 m and 1.25 m high, the same pieces do both |
 | 4 | lamp standard | 4 m tall, post 25 cm across | no | bronze, a stepped deco lantern or globe on top on a `Lit` slot. the lower 2.5 m of the post must be a plain straight cylinder, the player swings round it |
-| 5 | setback crown with a spire | footprints 6, 10 and 16 m square, 8 to 20 m tall | no | three to five steps and a brass finial, these are the landmarks you see from far away. abstract, no bat, no owl, nothing from a comic |
+| 5 | setback crown with a spire | footprints 6, 10 and 16 m square, 8 to 20 m tall | no | three to five steps and a brass finial, these are the landmarks you see from far away |
 | 6 | statue on a plinth | 3.5 m overall | no | the plinth a plain round column 50 cm across and 2 m tall (another swing anchor), the figure on top abstract and bronze, a stylised worker, a winged figure, a torch bearer, that kind of thing |
 | 7 | pillar capital + column drum | capital 3 × 3 m top, 1 m tall, on a 2.4 m shaft, drum 1 m across × 1 m tall | drum tiles in height | the capitals go on the hop stones, the drums under beams and walkways |
 | 8 | catwalk + balustrade | 1.2 m wide × 2 m long, rails 1 m high both sides | end to end | plus a 10 m × 2 m bridge segment with a deco balustrade and a plain 1 m × 2 m beam cover. the player runs these at speed, nothing on the walking surface |
