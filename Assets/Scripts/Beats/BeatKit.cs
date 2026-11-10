@@ -201,7 +201,7 @@ public class Frame
     public GameObject Stone(float x, float z, float y, float wide, float deep, string name = "ControlStone")
     {
         var stone = Deck(z - deep * 0.5f, z + deep * 0.5f, y, wide * 0.5f, name, x);
-        DecoKit.Place(root, "capital_3m", P(x, y - 1.05f, z), Rot, new Vector3(3f, 1f, 3f), new Vector3(wide / 3f * 1.03f, 1f, deep / 3f * 1.03f), true);   // the capital under the stone: its top 5 cm inside the slab, its sides 5 cm proud
+        DecoKit.Place(root, "capital_3m", P(x, y - 1.95f, z), Rot, new Vector3(3f, 1f, 3f), new Vector3(wide / 3f * 1.03f, 1f, deep / 3f * 1.03f), true);   // the capital UNDER the stone, round the top metre of its pillar: its top 5 cm up into the slab (the slab is a metre thick), its sides a few centimetres proud
         return stone;
     }
 
