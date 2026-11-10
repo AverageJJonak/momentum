@@ -39,57 +39,59 @@ public abstract class Beat
     protected static string F0(float x) => x.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
 }
 
-/// GAP JUMP: a four-metre launch, a gap at 70 / 80 / 90% of the reach at the expected speed, a SHORT LANDING (4 / 6 / 5 m)
-/// with a SLOT at its end (2026-11-04; the user: "every jump sequence mixes in at least one other move"): a gate whose
-/// opening is 1.25 m, so the landing is a jump, a touch-down and a SLIDE through, in rhythm. The arc the beat is sized
-/// for lands on the first half of the landing; an arc a few metres a second faster is still up at the gate and stops
-/// against it, and a hop after the landing is a stop too: only the slide goes through (VHOLUME enters its tunnels under
-/// a low beam the same way: the slot after the open gap is the tight beat after the open one)
+/// GAP JUMP: a four-metre launch, a gap at 70 / 80 / 90% of the reach at the expected speed, and a PITCHED LANDING: a roof
+/// eight metres long falling ten degrees, then four metres of flat. Jump, land on the pitch, SLIDE it (2026-11-10: the
+/// slide slot that stood at the landing's end went with the other landing gates: the user, having played them, "they
+/// kill the flow". The slide is still the beat's second move, now as a roof that pays for it and never stops anyone)
 public class GapJump : Beat
 {
     public override string Name => "GAP JUMP";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, v.baseRunSpeed, 12f, 16f);
-    public override string Note(LevelMetricsMath.Values v, int d) { float s = EntrySpeed(v, d), dy = Pick(d, 0f, -1f, -2f); return "a gap of " + F1(BeatMath.Gap(v, s, dy, Pick(d, 0.7f, 0.8f, 0.9f))) + " m at " + F0(s) + " m/s · land, then SLIDE the slot"; }
+    public override string Note(LevelMetricsMath.Values v, int d) { float s = EntrySpeed(v, d), dy = Pick(d, 0f, -1f, -2f); return "a gap of " + F1(BeatMath.Gap(v, s, dy, Pick(d, 0.7f, 0.8f, 0.9f))) + " m at " + F0(s) + " m/s · land on the pitched roof and SLIDE it"; }
     public override float Build(Frame f, int d)
     {
-        float s = EntrySpeed(f.v, d), dy = Pick(d, 0f, -1f, -2f), gap = BeatMath.Gap(f.v, s, dy, Pick(d, 0.7f, 0.8f, 0.9f)), land = Pick(d, 4f, 6f, 5f);   // the lintel takes the arc at about 1.4× the sized speed
+        float s = EntrySpeed(f.v, d), dy = Pick(d, 0f, -1f, -2f), gap = BeatMath.Gap(f.v, s, dy, Pick(d, 0.7f, 0.8f, 0.9f));
+        const float deg = 10f, roof = 8f;
+        float dz = roof * BeatMath.Cos(deg), fall = roof * BeatMath.Sin(deg);
         f.Deck(0f, 4f, 0f, HalfW, "Launch"); f.Line(0f, 0.5f, 3.5f, 0f);
-        f.Deck(4f + gap, 4f + gap + land, dy, HalfW, "Landing"); f.Line(0f, 4.5f + gap, 3.5f + gap + land, dy);
-        f.Portal(4f + gap + land, dy, HalfW, 1.25f, 2.25f);   // the slot: a run or a hop stops here, a slide passes
-        f.Advance(4f + gap + land, dy);
-        return s;
+        f.Slope(4f + gap, dy, 4f + gap + dz, dy - fall, HalfW, "LandingSlope"); f.LineRun(0f, 4f + gap, dy, 4f + gap + dz, dy - fall);
+        f.Deck(4f + gap + dz, 4f + gap + dz + 4f, dy - fall, HalfW, "Landing"); f.Line(0f, 4.5f + gap + dz, 3.5f + gap + dz + 4f, dy - fall);
+        f.Advance(4f + gap + dz + 4f, dy - fall);
+        return BeatMath.SlideGain(f.v, s, deg, roof * 0.6f);
     }
 }
 
-/// WALLRUN CHAIN: two to four walls staggered left and right over a void, 4 / 5.5 / 7 m apart along the line, each
-/// eight metres long; you run one, jump across to the next, land on the far floor a little lower. The landing runs
-/// from two metres past the last wall to where the jump off that wall's END lands at the sized speed, plus 3 / 3.5 / 3.5 m,
-/// and a portal stands there: the jump off the last wall has to be a landing and not a flight
+/// WALLRUN CHAIN (rebuilt 2026-11-10; the user, having played it: "the wall jump goes wrong", and the recording showed
+/// why: at 26 m/s the jump off one wall carried the body into the blunt leading end of the next, head on). Two to four
+/// facades alternating left and right over a void, and now they INTERLOCK: every wall begins beside the one before it,
+/// seven or six metres before that one ends, so the next wall is already alongside when you leave and there is no end
+/// to fly into; whatever the speed, the jump across meets a face. Each wall then runs on alone for 4 / 6 / 8 m (the
+/// stretch you hold) before the next begins. Run one, jump across when the other is beside you, run that, again; the
+/// landing is fourteen metres of floor a little lower, with no gate on it
 public class WallrunChain : Beat
 {
     public override string Name => "WALLRUN CHAIN";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, v.baseRunSpeed, 10f, 12f);
-    public override string Note(LevelMetricsMath.Values v, int d) => Pick(d, 2, 3, 4) + " walls, " + F1(Pick(d, 4f, 5.5f, 7f)) + " m apart · land before the portal";
+    static float Sole(int d) => Pick(d, 4f, 6f, 8f);
+    static float Overlap(int d) => Pick(d, 7f, 7f, 6f);
+    public override string Note(LevelMetricsMath.Values v, int d) => (int)Pick(d, 2, 3, 4) + " facades that overlap · run one, JUMP ACROSS when the next is beside you (it always is before this one ends)";
     public override float Build(Frame f, int d)
     {
-        float s = EntrySpeed(f.v, d), between = Pick(d, 4f, 5.5f, 7f);
+        float s = EntrySpeed(f.v, d), sole = Sole(d), overlap = Overlap(d), step = sole + overlap;
         int n = (int)Pick(d, 2, 3, 4);
-        float dyLand = -1f - 0.4f * n;
-        var off = LevelMetricsMath.WallJump(f.v, s, 0f);
-        float land = LevelMetricsMath.Jump(f.v, off.h, off.vy, dyLand, false).distance - 2f + Pick(d, 3f, 3.5f, 3.5f);   // from the wall's end: the arc, less the two metres of void, plus the slack (about 1.3× the sized speed)
-        const float lane = 2.6f, wallLen = 8f;
+        const float lane = 2.6f, land = 14f;
         f.Deck(0f, 6f, 0f, lane, "Launch"); f.Line(0f, 0.5f, 5.5f, 0f);
-        float z = 4f;
+        float zEnd = 0f;
         for (int i = 0; i < n; i++)
         {
+            // the first wall stands beside the launch and runs `sole` alone; every later one begins `overlap` before the one before it ends
             float side = i % 2 == 0 ? 1f : -1f;
-            f.Wall(side * (lane + 0.6f), z, z + wallLen, 0.3f - i * 0.4f, 4f);
-            z += wallLen + between;
+            float a = i == 0 ? 4f : 4f + sole + (i - 1) * step;
+            zEnd = a + (i == 0 ? sole + overlap : sole + 2f * overlap);
+            f.Wall(side * (lane + 0.6f), a, zEnd, 0.3f - i * 0.4f, 4f);
         }
-        float dy = dyLand;
-        float zLand = z - between + 2f;
+        float dy = -1f - 0.4f * n, zLand = zEnd - 2f;
         f.Deck(zLand, zLand + land, dy, HalfW, "Landing"); f.Line(0f, zLand + 0.5f, zLand + land - 0.5f, dy);
-        f.Portal(zLand + land, dy, HalfW);
         f.Advance(zLand + land, dy);
         return s;
     }
@@ -131,7 +133,7 @@ public class RampLaunch : Beat
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => v.baseRunSpeed;
     public override float SizedSpeed(LevelMetricsMath.Values v, int d) => BeatMath.SlideGain(v, v.baseRunSpeed, Deg, Pick(d, 8f, 12f, 16f));   // the lip
     const float Deg = 14f;
-    public override string Note(LevelMetricsMath.Values v, int d) { float len = Pick(d, 8f, 12f, 16f), lip = BeatMath.SlideGain(v, v.baseRunSpeed, Deg, len); return "SLIDE the " + F0(len) + " m ramp to " + F0(lip) + " m/s, jump the " + F1(BeatMath.Gap(v, lip, -2f, Pick(d, 0.7f, 0.8f, 0.9f))) + " m gap · land high on the slope, before the portal"; }
+    public override string Note(LevelMetricsMath.Values v, int d) { float len = Pick(d, 8f, 12f, 16f), lip = BeatMath.SlideGain(v, v.baseRunSpeed, Deg, len); return "SLIDE the " + F0(len) + " m ramp to " + F0(lip) + " m/s, jump the " + F1(BeatMath.Gap(v, lip, -2f, Pick(d, 0.7f, 0.8f, 0.9f))) + " m gap · land on the slope"; }
     public override float Build(Frame f, int d)
     {
         float len = Pick(d, 8f, 12f, 16f), lip = BeatMath.SlideGain(f.v, f.v.baseRunSpeed, Deg, len);
@@ -140,8 +142,6 @@ public class RampLaunch : Beat
         f.Slope(0f, 0f, dz, -drop, HalfW, "LaunchRamp");
         float yLand = -drop - 2f, landLen = 10f, landDrop = landLen * BeatMath.Sin(10f), landDz = landLen * BeatMath.Cos(10f);
         f.Slope(dz + gap, yLand, dz + gap + landDz, yLand - landDrop, HalfW, "LandingSlope");
-        const float portalDown = 9.5f;   // along the landing slope: at its foot
-        f.Portal(dz + gap + portalDown * BeatMath.Cos(10f), yLand - portalDown * BeatMath.Sin(10f), HalfW);
         f.Deck(dz + gap + landDz, dz + gap + landDz + 4f, yLand - landDrop, HalfW, "Landing");
         f.Advance(dz + gap + landDz + 4f, yLand - landDrop);
         return lip;
@@ -194,7 +194,7 @@ public class Fork : Beat
         // the risky right side: a floor, then stones, each a metre lower, the rejoin a metre lower still
         float z = 4f, y = 0f;
         f.Deck(z, z + first, y, lane, "RiskyFloor", off);
-        f.Portal(z + first - 1.75f, y, lane - 0.2f, 1.25f, 2.25f, false, true, off);   // the bar: a gate off the divider with a slot a slide passes; a run or a hop into it stops
+        f.Bar(z + first - 1.75f, y, lane - 0.2f, 1.25f, false, true, off);   // the bar off the divider: a slide passes under, a run or a hop into it stops (the slide is this side's move)
         z += first;
         for (int i = 0; i < n; i++)
         {
@@ -209,7 +209,6 @@ public class Fork : Beat
         for (float pz = 8f; pz < 4f + len - slopeLen - 2f; pz += 8f) f.Portal(pz, 0f, lane - 0.2f, 2.2f, 5.5f, true, false, -off);
         f.Slope(4f + len - slopeLen, 0f, 4f + len, y, lane, "SafeSlope", -off);
         f.Deck(4f + len, 4f + len + 6f, y, HalfW, "Rejoin"); f.Line(0f, 4.5f + len, 9.5f + len, y);
-        f.Portal(4f + len + 3f, y, HalfW);
         f.Advance(4f + len + 6f, y);
         return 12f;
     }
@@ -224,7 +223,7 @@ public class Skip : Beat
 {
     public override string Name => "SKIP";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, 14f, 16f, 18f);
-    public override string Note(LevelMetricsMath.Values v, int d) { float s = EntrySpeed(v, d); return "straight: WALL RUN the left facade across " + F1(SkipGap(v, s)) + " m at " + F0(s) + " m/s, land before the portal · or the long way right"; }
+    public override string Note(LevelMetricsMath.Values v, int d) { float s = EntrySpeed(v, d); return "straight: WALL RUN the left facade across " + F1(SkipGap(v, s)) + " m at " + F0(s) + " m/s · or the long way right"; }
     /// More than any hop at this speed, three quarters of the wall run's carry
     static float SkipGap(LevelMetricsMath.Values v, float s) => Mathf.Max(1.4f * BeatMath.Reach(v, s, -1f) + 0.5f, 0.75f * BeatMath.WallRunCarry(v, s, -1f));
     public override float Build(Frame f, int d)
@@ -236,7 +235,6 @@ public class Skip : Beat
         f.Deck(0f, 4f, 0f, HalfW, "Launch"); f.Line(0f, 0.5f, 3.5f, 0f);
         f.Wall(-(HalfW + 0.6f), 2f, wallEnd, 0.3f, 4f);   // the facade on the left: the way across
         f.Deck(4f + gap, 4f + gap + land, -1f, HalfW, "Landing"); f.Line(0f, 4.5f + gap, 3.5f + gap + land, -1f);
-        f.Portal(4f + gap + land, -1f, HalfW, 2.2f, 5.5f, true, false);
         // the long way: a floor out to the right from the launch, a slope forward and down beside the gap, a floor back in to the landing
         f.Mass(HalfW - 0.2f, outX + laneW, -1f, 0f, 1f, 4f, "WayOut", LevelKit.Floor); f.Body(HalfW - 0.2f, outX + laneW, -1.05f, 1f, 4f, "WayOutBody");
         f.Slope(4f, 0f, 6f + gap, -1f, laneW, "WayAlong", outX);
@@ -253,7 +251,7 @@ public class TechCheck : Beat
 {
     public override string Name => "TECH CHECK";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, v.baseRunSpeed, 10f, 12f);
-    public override string Note(LevelMetricsMath.Values v, int d) => (d <= 1 ? "WALL RUN the gap" : d == 2 ? "SLIDE under the bar, SLIDE-JUMP the gap" : "DOUBLE JUMP the gap (a pip)") + " · land before the portal";
+    public override string Note(LevelMetricsMath.Values v, int d) => (d <= 1 ? "WALL RUN the gap" : d == 2 ? "SLIDE under the bar, SLIDE-JUMP the gap" : "DOUBLE JUMP the gap (a pip)");
     public override float Build(Frame f, int d)
     {
         float s = EntrySpeed(f.v, d);
@@ -266,7 +264,6 @@ public class TechCheck : Beat
             f.Deck(0f, 4f, 0f, lane, "Launch"); f.Line(0f, 0.5f, 3.5f, 0f);
             f.Wall(lane + 0.6f, 2f, wallEnd, 0.3f, 4f);
             f.Deck(4f + gap, 4f + gap + land, dy, HalfW, "Landing"); f.Line(0f, 4.5f + gap, 3.5f + gap + land, dy);
-            f.Portal(4f + gap + land, dy, HalfW);
             f.Advance(4f + gap + land, dy);
             return s;
         }
@@ -274,17 +271,14 @@ public class TechCheck : Beat
         {
             float gap = BeatMath.SlideJumpReach(f.v, s, -0.5f) * 0.8f, land = 5f;
             f.Deck(0f, 4f, 0f, HalfW, "Launch"); f.Line(0f, 0.5f, 3.5f, 0f);
-            if (f.Structural) f.Portal(1.75f, 0f, HalfW, 1.25f, 2.25f);   // a gate with a slot: the bar is its lintel, and nothing stands on it
-            else f.Mass(-HalfW - 1f, HalfW + 1f, 1.25f, 2.25f, 0.5f, 3f, "Bar");
+            f.Bar(1.75f, 0f, HalfW);   // the bar: the slide is this check's move
             f.Deck(4f + gap, 4f + gap + land, -0.5f, HalfW, "Landing"); f.Line(0f, 4.5f + gap, 3.5f + gap + land, -0.5f);
-            f.Portal(4f + gap + land, -0.5f, HalfW);
             f.Advance(4f + gap + land, -0.5f);
             return s;
         }
         float dj = BeatMath.DoubleReach(f.v, s, -1f) * 0.85f, land3 = 7f;   // the double jump's arc is long: seven metres take it to about 1.25× the sized speed
         f.Deck(0f, 4f, 0f, HalfW, "Launch"); f.Line(0f, 0.5f, 3.5f, 0f);
         f.Deck(4f + dj, 4f + dj + land3, -1f, HalfW, "Landing"); f.Line(0f, 4.5f + dj, 3.5f + dj + land3, -1f);
-        f.Portal(4f + dj + land3, -1f, HalfW);
         f.Advance(4f + dj + land3, -1f);
         return s;
     }
@@ -311,8 +305,7 @@ public class HiddenRoute : Beat
     /// The bar across the high line's lane, centred at `z`: a slide or a stop. With a ground it is a gate off the facade, nothing to stand on
     static void HiddenBar(Frame f, float z)
     {
-        if (f.Structural) f.Portal(z, 0f, LaneHalf + 0.3f, 1.25f, 2.25f, false, true, LaneX);
-        else f.Mass(LaneX - 1.6f, LaneX + 1.6f, 1.25f, 2.25f, z - 1.75f, z + 1.75f, "HiddenBar");
+        f.Bar(z, 0f, LaneHalf + 0.3f, 1.25f, false, true, LaneX);
     }
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, 10f, 12f, 14f);
     public override string Note(LevelMetricsMath.Values v, int d) => "the lit line goes down · a HIGH LINE on the left: " + (d <= 1 ? "wall run, jump, drop" : d == 2 ? "wall run, SLIDE the bar, slide-jump, hop the stones, drop" : "wall run, wall run, slide the bar, slide-jump, the chute");
@@ -434,7 +427,7 @@ public class Control : Beat
 {
     public override string Name => "CONTROL";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, v.baseRunSpeed, 10f, 12f);
-    public override string Note(LevelMetricsMath.Values v, int d) => "KEEP " + F0(EntrySpeed(v, d)) + " m/s along the beam" + (d <= 1 ? ": 1.5 m wide and straight, then the portal" : d == 2 ? ": 1.2 m wide with a kink, then the portal" : ": 1 m wide with two kinks, then the portal") + " · too fast is a fall";
+    public override string Note(LevelMetricsMath.Values v, int d) => "KEEP " + F0(EntrySpeed(v, d)) + " m/s along the beam" + (d <= 1 ? ": 1.5 m wide and straight" : d == 2 ? ": 1.2 m wide with a kink" : ": 1 m wide with two kinks") + " · too fast is a fall";
     public override float Build(Frame f, int d)
     {
         float s = EntrySpeed(f.v, d);
@@ -447,7 +440,6 @@ public class Control : Beat
             f.Deck(z, z + 4f, 0f, 2f, "ControlLanding"); f.Line(0f, z + 0.5f, z + 4f, 0f); z += 4f;
             f.Beam(0f, z, 0f, z + 8f, 0f, 1.5f); f.Line(0f, z, z + 8f, 0f); z += 8f;
             f.Deck(z, z + 4f, 0f, 2f, "ControlLanding"); f.Line(0f, z + 0.5f, z + 3.5f, 0f);
-            f.Portal(z + 4f, 0f, 2f);
             f.Advance(z + 4f, 0f);
             return s;
         }
@@ -463,7 +455,6 @@ public class Control : Beat
             // the landing and the portal lie along the second leg: the beat leaves turned right
             var g = f.Sub(xk, 0f, zk, 90f);
             g.Deck(0f, 4f, 0f, 2f, "ControlLanding"); g.Line(0f, 0.5f, 3.5f, 0f);
-            g.Portal(4f, 0f, 2f);
             g.Advance(4f, 0f);
             f.origin = g.origin; f.Turn(90f);
             return s;
@@ -473,56 +464,102 @@ public class Control : Beat
         xk += pad * 0.5f; zk += pad * 0.5f;
         f.Beam(xk, zk, xk, zk + beamLen, 0f, beamW); f.LineBetween(xk, zk, xk, zk + beamLen, 0f); zk += beamLen;
         f.Deck(zk, zk + 4f, 0f, 2f, "ControlLanding", xk); f.LineBetween(xk, zk + 0.5f, xk, zk + 3.5f, 0f);
-        f.Portal(zk + 4f, 0f, 2f, 2.2f, 5.5f, true, true, xk);
         f.origin = f.P(xk, 0f, zk + 4f);
         return s;
     }
 }
 
-/// TRICK DESCENT (2026-11-10; the user threw out the hop stones, "the platforms are way too small and awkwardly spaced
-/// out, there's nothing unique or fun about it", and picked this in their place). Platforming as BIG AIRS, not small
-/// targets: a tower's setbacks taken as a cascade. A gate at the mouth (whatever speed was carried in comes down to a
-/// run), a flat roof's edge, then two or three roofs stepping down 4 / 5 / 6 m each, every one a wide pitched roof
-/// sixteen metres long: jump the edge, more than a second in the air (the trick's stage: its prompt is at the apex),
-/// land anywhere on the roof below, SLIDE it (the pitch turns the fall into speed and adds its own), jump its lower
-/// edge, again. The gap off each edge is 70 / 75 / 80% of what the arc from it covers at the speed the roof before
-/// makes (a lazy slide jump off a pitched edge, a plain jump off the first, flat one), and each roof is long enough to
-/// take that arc thrown a good deal faster. No landing is smaller than twelve metres by sixteen. It ends on a flat
-/// run-out with all the speed the cascade made
+/// TRICK DESCENT (2026-11-10; the user threw out the hop stones and picked this in their place; played the same day:
+/// "too easy", and asked for MOVES MIXED IN BETWEEN THE AIRS). Platforming as big airs onto big roofs, a tower's
+/// setbacks taken as a cascade, and each roof asks for something different before the next jump:
+///   the flat EDGE        a plain jump: the first air, over a second of it (the trick's stage: its prompt is at the apex)
+///   ROOF ONE (24 m)      land anywhere, SLIDE it (its lit line runs down the right side, to the wall); a FACADE stands beside its last six metres and runs on eight metres
+///                        over the gap: slide-jump at the edge onto it, WALL RUN it out over the void, jump off its end.
+///                        The gap is 1.1 times what a lazy slide jump covers: the wall is the way across
+///   ROOF TWO (24 m)      II and III: a low BEAM across it three metres before its edge: slide under it, then jump in
+///                        the three metres that are left (a second jump clears the beam, for a pip)
+///   ROOF THREE (16 m)    III: NARROW, five metres wide and not twelve: line it up in the air and hold it
+/// The roofs fall 4 / 5 / 6 m each and are pitched 20°, so every landing turns the fall into speed and the slide adds
+/// its own; a gap is 70 / 75 / 80% of what the arc off the edge before it covers at the speed that roof makes. The
+/// first roof is long so that a fast arrival still finds it. No gate anywhere: arrive too fast and the roof is missed
 public class TrickDescent : Beat
 {
     public override string Name => "TRICK DESCENT";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => v.baseRunSpeed;
-    const float Deg = 20f, RoofLen = 16f, Edge = 6f;
+    const float Deg = 20f, FirstRoof = 24f, RoofLen = 16f, Edge = 6f, WallBack = 6f, WallOut = 8f;
     static int Airs(int d) => (int)Pick(d, 2, 3, 3);
     static float Step(int d) => Pick(d, 4f, 5f, 6f);
     static float Frac(int d) => Pick(d, 0.7f, 0.75f, 0.8f);
-    public override string Note(LevelMetricsMath.Values v, int d) => Airs(d) + " big airs, each roof " + F0(Step(d)) + " m lower · JUMP the edge, TRICK in the air (over a second), land on the roof, SLIDE it, jump its edge";
+    public override string Note(LevelMetricsMath.Values v, int d) => d <= 1
+        ? "2 big airs · JUMP the edge, TRICK in the air · SLIDE the roof, then WALL RUN the facade off its end and jump"
+        : d == 2 ? "3 big airs · roof one: slide, WALL RUN off its end · roof two: slide UNDER THE BEAM, then jump · TRICK every air"
+        : "3 big airs · roof one: WALL RUN off its end · roof two: slide UNDER THE BEAM, then jump · roof three is NARROW: hold it";
     public override float Build(Frame f, int d)
     {
         var v = f.v;
-        float cos = BeatMath.Cos(Deg), sin = BeatMath.Sin(Deg), dz = RoofLen * cos, fall = RoofLen * sin;
-        f.Portal(0.5f, 0f, HalfW);   // the mouth: a hop chain carried in lands here and runs under, so the first edge is met at a run
-        f.Deck(0f, Edge, 0f, HalfW, "DescentEdge"); f.Line(0f, 1.5f, Edge - 0.5f, 0f);
+        float cos = BeatMath.Cos(Deg), sin = BeatMath.Sin(Deg), tan = sin / cos;
+        int n = Airs(d);
+        f.Deck(0f, Edge, 0f, HalfW, "DescentEdge"); f.Line(0f, 0.5f, Edge - 0.5f, 0f);
         f.LampPost(HalfW + 0.4f, 0f, Edge - 1f);
         float z = Edge, y = 0f, s = v.baseRunSpeed;
-        bool pitched = false;
-        for (int k = 0; k < Airs(d); k++)
+        for (int k = 0; k < n; k++)
         {
             float h = Step(d);
-            float along = pitched ? s * cos : s;                                    // the horizontal at the edge: a pitched roof's speed runs down its pitch
-            float up = pitched ? v.slideJumpVerticalImpulse : v.jumpImpulse;        // off a slid roof the jump is a slide jump (the lazy one: no multiplier counted)
-            var arc = LevelMetricsMath.Jump(v, along, up, -h, false);
-            float gap = arc.distance * Frac(d);
+            float roofLen = k <= 1 ? FirstRoof : RoofLen, dz = roofLen * cos, fall = roofLen * sin;   // the first roof is long for a fast arrival, the second for a wall run caught early (it leaves higher and flies further)
+            bool narrow = d >= 3 && k == n - 1;
+            float halfW = narrow ? 2.5f : HalfW + 1f;
+            float along, up, reach, gap, airTime;
+            if (k == 0)
+            {
+                // off the flat edge: a plain jump
+                along = s; up = v.jumpImpulse;
+                var arc = LevelMetricsMath.Jump(v, along, up, -h, false);
+                reach = arc.distance; airTime = arc.time; gap = reach * Frac(d);
+            }
+            else if (k == 1)
+            {
+                // THE WALL RUN off roof one: the facade beside its last metres runs on over the gap; the slide jump at the edge
+                // puts the body on it (the kept rise and the pop), it is run to its end, and the jump off it is the air
+                float lip = s * cos;
+                f.Wall(HalfW + 1f + 0.6f, z - WallBack, z + WallOut, y - 1.5f, 4f);
+                float t = WallOut / Mathf.Max(1f, lip), wy = 0f;
+                float wvy = Mathf.Min(v.slideJumpVerticalImpulse, Mathf.Max(0f, v.wallRunEntryRiseKeep)) + v.wallRunEntryPop;
+                for (float u = 0f; u < t; u += v.fixedDeltaTime)
+                {
+                    float life = Mathf.Min(1f, u / v.wallRunMaxDuration);
+                    wvy -= v.gravity * Mathf.Lerp(v.wallRunGravityFactor, 1f, life * life) * v.fixedDeltaTime;
+                    wy += wvy * v.fixedDeltaTime;
+                }
+                along = lip * v.wallRunJumpTangentBoost; up = Mathf.Max(wvy, 0f) * 0.5f + v.wallRunJumpUpImpulse;
+                var arc = LevelMetricsMath.Jump(v, along, up, -(h + wy), false);
+                reach = WallOut + arc.distance; airTime = arc.time;
+                float slideOnly = LevelMetricsMath.Jump(v, lip, v.slideJumpVerticalImpulse, -h, false).distance;
+                gap = Mathf.Min(slideOnly * 1.1f, reach * 0.82f);   // a tenth more than the lazy slide jump covers: the wall is the way, and a perfect slide jump with a trick's burst just makes it without
+            }
+            else
+            {
+                // off roof two: the slide jump in the three metres after its beam (the lazy one: no multiplier counted)
+                along = s * cos; up = v.slideJumpVerticalImpulse;
+                var arc = LevelMetricsMath.Jump(v, along, up, -h, false);
+                reach = arc.distance; airTime = arc.time; gap = reach * Frac(d);
+            }
             z += gap; y -= h;
-            f.Slope(z, y, z + dz, y - fall, HalfW + 1f, "DescentRoof"); f.LineRun(0f, z, y, z + dz, y - fall);
+            f.Slope(z, y, z + dz, y - fall, halfW, narrow ? "DescentRidge" : "DescentRoof"); f.LineRun(k == 0 ? HalfW + 0.2f : 0f, z, y, z + dz, y - fall);   // roof one's lit line runs down its right side, a body's width from the facade it leads to
             f.Lamp(0f, y - fall + 6f, z + dz);
+            if (k == 1 && n >= 3)
+            {
+                // THE BEAM on roof two: a metre deep, its underside 1.4 m over the pitched roof, three metres before the edge
+                float zb = z + dz - 3f, yb = y - (dz - 3f) * tan;
+                f.Mass(-halfW - 0.1f, halfW + 0.1f, yb + 1.4f, yb + 2.4f, zb - 0.45f, zb + 0.45f, "Lintel");
+                f.Mass(-halfW - 0.8f, -halfW - 0.1f, f.Structural ? f.groundY : yb - 1f, yb + 2.4f, zb - 0.45f, zb + 0.45f, "Post");
+                f.Mass(halfW + 0.1f, halfW + 0.8f, f.Structural ? f.groundY : yb - 1f, yb + 2.4f, zb - 0.45f, zb + 0.45f, "Post");
+            }
             // the speed at this roof's lower edge: the landing turns the fall into speed down the pitch, the slide adds the rest of the roof
-            float vyLand = Mathf.Max(0f, v.gravity * arc.time - up);
+            float vyLand = Mathf.Max(0f, v.gravity * airTime - up);
             float landed = Mathf.Max(v.baseRunSpeed, along * cos + vyLand * sin);
-            float landIn = Mathf.Clamp((arc.distance - gap) / cos, 0f, RoofLen);
-            s = BeatMath.SlideGain(v, landed, Deg, RoofLen - landIn);
-            z += dz; y -= fall; pitched = true;
+            float landIn = Mathf.Clamp((reach - gap) / cos, 0f, roofLen);
+            s = BeatMath.SlideGain(v, landed, Deg, roofLen - landIn);
+            z += dz; y -= fall;
         }
         f.Deck(z, z + 8f, y, HalfW, "RunOut"); f.Line(0f, z + 0.5f, z + 7.5f, y);
         f.Advance(z + 8f, y);
