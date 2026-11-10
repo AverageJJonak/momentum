@@ -14,6 +14,8 @@ using UnityEngine;
 /// comes back; a LAZY trick pays style only (the "trick" freshness key). Mid-arc at touchdown = a STUMBLE: the
 /// landing roll, trickStumbleSeconds at half acceleration (PlayerMotor.Stumble), the pay forfeited. When the air is
 /// long enough a second prompt follows the first arc (a combo), each later trick worth trickComboStyle× more style.
+/// MORE TRICKS (2026-11-10, MovementConfigTrickKinds): S at speed = GAINER, W or S with A or D = FULL TWIST or CORK,
+/// JUMP held at the press = a DOUBLE (two turns over a longer arc); a trick unlike the last pays more style.
 /// Everything attributed, no allocation per frame (the names are literals), nothing read in Awake.
 /// </summary>
 public class TrickSystem : MonoBehaviour
@@ -26,9 +28,9 @@ public class TrickSystem : MonoBehaviour
     public StyleSystem style;
     public CameraBody body;
 
-    public enum Kind { None, Front, Back, Side, Spin }
-    static readonly string[] Names = { null, "FRONT FLIP", "BACKFLIP", "SIDE FLIP", "SPIN" };
-    static readonly string[] PerfectNames = { null, "PERFECT FRONT FLIP", "PERFECT BACKFLIP", "PERFECT SIDE FLIP", "PERFECT SPIN" };
+    public enum Kind { None, Front, Back, Side, Spin, Gainer, FullTwist, Cork, DoubleFront, DoubleBack, Spin720 }   // the last six: MovementConfigTrickKinds (2026-11-10)
+    static readonly string[] Names = { null, "FRONT FLIP", "BACKFLIP", "SIDE FLIP", "SPIN", "GAINER", "FULL TWIST", "CORK", "DOUBLE FRONT", "DOUBLE BACK", "720" };
+    static readonly string[] PerfectNames = { null, "PERFECT FRONT FLIP", "PERFECT BACKFLIP", "PERFECT SIDE FLIP", "PERFECT SPIN", "PERFECT GAINER", "PERFECT FULL TWIST", "PERFECT CORK", "PERFECT DOUBLE FRONT", "PERFECT DOUBLE BACK", "PERFECT 720" };
 
     /// A trick's arc is running (the camera is mid-turn)
     public bool Active => kind != Kind.None;
@@ -59,8 +61,8 @@ public class TrickSystem : MonoBehaviour
     public Vector3 LandingPoint { get; private set; }
     public float RemainingAir => landAt - Time.time;
 
-    Kind kind;
-    float arcStart, arcSeconds, sideSign = 1f, arcFresh = 1f;
+    Kind kind, lastThrown;
+    float arcStart, arcSeconds, sideSign = 1f, arcFresh = 1f, turns = 1f;   // turns: 1, or 2 for a double
     bool arcPerfect, pendingPay, stumbling;
     float stumbleAt, stumbleAngle0, stumbleSeconds;
     float windowOpen = -10f, windowClose = -10f, windowCentre, armedAt = -10f, ringClose = -10f;
@@ -183,10 +185,19 @@ public class TrickSystem : MonoBehaviour
     {
         float fx = (Keybinds.Held(GameAction.Right) ? 1f : 0f) - (Keybinds.Held(GameAction.Left) ? 1f : 0f);
         float fz = (Keybinds.Held(GameAction.Forward) ? 1f : 0f) - (Keybinds.Held(GameAction.Back) ? 1f : 0f);
-        if (fz > 0f) { kind = Kind.Front; arcSeconds = config.trickFrontSeconds; }
-        else if (fz < 0f) { kind = Kind.Back; arcSeconds = config.trickBackSeconds; }
-        else if (fx != 0f) { kind = Kind.Side; arcSeconds = config.trickSideSeconds; sideSign = fx < 0f ? 1f : -1f; }   // a flip to the left rolls left (+)
-        else { kind = Kind.Spin; arcSeconds = config.trickSpinSeconds; }
+        // MORE TRICKS (2026-11-10): a diagonal is a twist, S at speed a gainer, JUMP held a double; off, the four of 2026-10-23
+        bool more = config.trickMoreKinds, big = more && Keybinds.Held(GameAction.Jump);
+        float speedNow = new Vector2(motor.Velocity.x, motor.Velocity.z).magnitude;
+        turns = 1f;
+        if (fx != 0f) sideSign = fx < 0f ? 1f : -1f;   // a flip to the left rolls left (+)
+        if (more && fz > 0f && fx != 0f) { kind = Kind.FullTwist; arcSeconds = config.trickTwistSeconds; }
+        else if (more && fz < 0f && fx != 0f) { kind = Kind.Cork; arcSeconds = config.trickTwistSeconds; }
+        else if (fz > 0f) { kind = big ? Kind.DoubleFront : Kind.Front; arcSeconds = config.trickFrontSeconds; }
+        else if (fz < 0f) { kind = big ? Kind.DoubleBack : more && speedNow >= config.trickGainerSpeed ? Kind.Gainer : Kind.Back; arcSeconds = config.trickBackSeconds; }
+        else if (fx != 0f) { kind = Kind.Side; arcSeconds = config.trickSideSeconds; }
+        else { kind = big ? Kind.Spin720 : Kind.Spin; arcSeconds = config.trickSpinSeconds; }
+        bool isDouble = kind == Kind.DoubleFront || kind == Kind.DoubleBack || kind == Kind.Spin720;
+        if (isDouble) { turns = 2f; arcSeconds *= Mathf.Max(1f, config.trickDoubleSecondsScale); }
         arcSeconds = Mathf.Max(0.1f, arcSeconds);
         arcStart = now;
         arcPerfect = perfect;
@@ -205,7 +216,7 @@ public class TrickSystem : MonoBehaviour
         LastTrickAt = now;
         float zone = StyleZone.StyleScaleAt(motor.CurrPosition);
         arcFresh = StyleSystem.GainScale(MoveType.Trick);   // FRESHNESS (STEP 1): read before the press's event spends it; the landing's pay uses the same
-        float burst = (perfect ? config.trickPerfectBurstScale : 1f) * Mathf.Pow(Mathf.Max(1f, config.trickComboBurstScale), ComboIndex) * arcFresh;
+        float burst = (perfect ? config.trickPerfectBurstScale : 1f) * Mathf.Pow(Mathf.Max(1f, config.trickComboBurstScale), ComboIndex) * arcFresh * (isDouble ? Mathf.Max(1f, config.trickDoubleBurstScale) : 1f);
         Vector3 v = motor.Velocity;
         float h = new Vector2(v.x, v.z).magnitude;
         Vector3 fwd = h > 0.5f ? new Vector3(v.x, 0f, v.z) / h : Quaternion.Euler(0f, look.Yaw, 0f) * Vector3.forward;
@@ -216,8 +227,23 @@ public class TrickSystem : MonoBehaviour
         Vector3 impulse;
         switch (kind)
         {
-            case Kind.Front: impulse = fwd * (f * config.trickFrontForwardScale) + Vector3.up * (u * 0.5f); break;
-            case Kind.Back: impulse = fwd * (f * 0.4f) + Vector3.up * (u * config.trickBackUpScale); break;
+            case Kind.Front: case Kind.DoubleFront: impulse = fwd * (f * config.trickFrontForwardScale) + Vector3.up * (u * 0.5f); break;
+            case Kind.Back: case Kind.DoubleBack: impulse = fwd * (f * 0.4f) + Vector3.up * (u * config.trickBackUpScale); break;
+            case Kind.Gainer: impulse = fwd * (f * config.trickGainerForward) + Vector3.up * (u * config.trickGainerUp); break;   // the backflip thrown forward: it keeps going
+            case Kind.FullTwist:
+            {
+                Vector3 side = Vector3.Cross(Vector3.up, fwd).normalized * -sideSign;
+                impulse = fwd * (f * config.trickFrontForwardScale * 0.8f) + side * (config.trickSideLateral * 0.4f) + Vector3.up * (u * 0.6f);
+                styleScale = config.trickTwistStyleScale;
+                break;
+            }
+            case Kind.Cork:
+            {
+                Vector3 side = Vector3.Cross(Vector3.up, fwd).normalized * -sideSign;
+                impulse = fwd * (f * 0.6f) + side * (config.trickSideLateral * 0.4f) + Vector3.up * (u * config.trickBackUpScale * 0.8f);
+                styleScale = config.trickTwistStyleScale;
+                break;
+            }
             case Kind.Side:
             {
                 Vector3 side = Vector3.Cross(Vector3.up, fwd).normalized * -sideSign;   // a flip to the left cuts left
@@ -226,6 +252,9 @@ public class TrickSystem : MonoBehaviour
             }
             default: impulse = fwd * f + Vector3.up * u; styleScale = config.trickSpinStyleScale; break;
         }
+        if (isDouble) styleScale *= Mathf.Max(1f, config.trickDoubleStyleScale);
+        if (more && lastThrown != Kind.None && lastThrown != kind) styleScale *= Mathf.Max(1f, config.trickVarietyStyleScale);   // variety: a different trick from the last pays more
+        lastThrown = kind;
         motor.AddImpulse(impulse * burst);
         if (style != null) style.AddBonus(config.trickStylePoints * zone * styleScale * (perfect ? 1.5f : 1f));
         if (stamina != null && config.trickPips > 0) stamina.Refund(config.trickPips);
@@ -316,10 +345,10 @@ public class TrickSystem : MonoBehaviour
         if (stumbling)
         {
             float q = Mathf.Clamp01((now - stumbleAt) / Mathf.Max(0.01f, stumbleSeconds));
-            return stumbleAngle0 + (360f - stumbleAngle0) * (1f - (1f - q) * (1f - q));
+            return stumbleAngle0 + (360f * turns - stumbleAngle0) * (1f - (1f - q) * (1f - q));
         }
         float p = Mathf.Clamp01((now - arcStart) / Mathf.Max(0.01f, arcSeconds));
-        return 360f * Mathf.SmoothStep(0f, 1f, p);
+        return 360f * turns * Mathf.SmoothStep(0f, 1f, p);
     }
 
     /// The trick's rotation on top of the look (PlayerLook): a flip turns about the view's own right (front: forward
@@ -330,10 +359,12 @@ public class TrickSystem : MonoBehaviour
         float a = Angle(Time.time);
         switch (kind)
         {
-            case Kind.Front: return view * Quaternion.AngleAxis(a, Vector3.right);
-            case Kind.Back: return view * Quaternion.AngleAxis(-a, Vector3.right);
+            case Kind.Front: case Kind.DoubleFront: return view * Quaternion.AngleAxis(a, Vector3.right);
+            case Kind.Back: case Kind.Gainer: case Kind.DoubleBack: return view * Quaternion.AngleAxis(-a, Vector3.right);
             case Kind.Side: return view * Quaternion.AngleAxis(a * sideSign, Vector3.forward);
-            case Kind.Spin: return Quaternion.AngleAxis(a, Vector3.up) * view;
+            case Kind.Spin: case Kind.Spin720: return Quaternion.AngleAxis(a, Vector3.up) * view;
+            case Kind.FullTwist: return view * Quaternion.AngleAxis(a, Vector3.right) * Quaternion.AngleAxis(a * sideSign, Vector3.forward);   // the flip and a full roll with it: both come round to nothing together
+            case Kind.Cork: return view * Quaternion.AngleAxis(-a, Vector3.right) * Quaternion.AngleAxis(a * sideSign, Vector3.up);       // the backflip thrown off its axis, a full turn about the body with it
         }
         return view;
     }
