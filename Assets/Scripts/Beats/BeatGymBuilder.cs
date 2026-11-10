@@ -91,18 +91,18 @@ public static class BeatGymBuilder
     /// by count, the bend after TURN II ran eleven metres under the bend before TURN I, its facades up through that floor)
     static float BendSide(Frame f) { float h = Mathf.Repeat(f.yaw, 360f); return h < 135f || h >= 315f ? -1f : 1f; }
 
-    /// THE BEND: five metres of floor, then ninety degrees (right for `side` 1, left for -1) as six facets of fifteen
-    /// degrees, each 5.5 m long and pitched 4° down (VHOLUME's bends are slight ramps; never an uphill exit), a FACADE
+    /// THE BEND: three metres of floor, then ninety degrees (right for `side` 1, left for -1) as eight facets of 11.25
+    /// degrees, each 2.5 m long and pitched 4° down (VHOLUME's bends are slight ramps; never an uphill exit), a FACADE
     /// along the outside the whole way round (a wall run round the outside is the fast way: "walls are the gain"), the
-    /// lit line down the middle, a lamp at the apex, and a four-metre straight at the same pitch so the last joint is
+    /// lit line down the middle, a lamp at the apex, and a two-metre straight at the same pitch so the last joint is
     /// flush with the floor that follows. The facets overlap a little at their joints so the outer edge has no hole
     /// (the TURN beat's curve, the same sums). A run holds its speed round it, a slide gains a little, a hop chain has
     /// to be steered fifteen degrees a facet, two or three facets a hop; nothing here sheds speed on purpose any more
     static void Bend(Frame f, float side)
     {
-        const int segs = 6; const float each = 15f, segLen = 5.5f, pitch = 4f, exitLen = 4f;
-        f.Deck(0f, 5f, 0f, HalfW, "After"); f.Line(0f, 0.5f, 4.5f, 0f);
-        f.Advance(5f, 0f);
+        const int segs = 8; const float each = 11.25f, segLen = 2.5f, pitch = 4f, exitLen = 2f, after = 3f;   // 2026-11-10, the user having played the 42 m bends: "too long". Now 25 m: a 20 m arc of eight short facets (smoother than six long ones, and the outer wall turns less at each joint), three metres before it and two after
+        f.Deck(0f, after, 0f, HalfW, "After"); f.Line(0f, 0.5f, after - 0.5f, 0f);
+        f.Advance(after, 0f);
         float over = HalfW * Mathf.Tan(each * 0.5f * Mathf.Deg2Rad) * 0.5f + 0.2f;   // the joints overlap a little so the outer edge has no hole
         float lift = over * Mathf.Tan(pitch * Mathf.Deg2Rad);   // the overlap keeps the pitch: the top at z = 0 is exactly the origin's height
         float segDrop = segLen * BeatMath.Sin(pitch), segDz = segLen * BeatMath.Cos(pitch);
@@ -112,7 +112,7 @@ public static class BeatGymBuilder
             f.Slope(-over, lift, segDz + over, -segDrop - lift, HalfW, "BendDeck");
             f.Wall(outer, -over, segDz + over, 0.3f, 4f, "KickWall", 0f, segDz);   // dressed over the facet alone, not the overlaps
             f.LineRun(0f, 0f, 0f, segDz, -segDrop);
-            if (i == 2) { f.Lamp(0f, 5f, segDz); f.LampPost(side * (HalfW + 0.4f), -segDrop, segDz); }   // the apex lamp, its standard on the inside edge
+            if (i == segs / 2 - 1) { f.Lamp(0f, 5f, segDz); f.LampPost(side * (HalfW + 0.4f), -segDrop, segDz); }   // the apex lamp, its standard on the inside edge
             f.Advance(segDz, -segDrop);
             f.Turn(side * each);
         }
