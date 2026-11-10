@@ -331,6 +331,7 @@ public static class LevelValidator
                 var e = new Edge { from = i, to = j, gap = gap, dy = dy, a = a, b = b };
                 if (gap <= Touch && Mathf.Abs(dy) <= StepMin) { e.move = Move.Walk; e.cost = 0f; }
                 else if (gap <= Touch && dy < -StepMin) { e.move = Move.Drop; e.cost = 0.5f; }
+                else if (gap <= Touch && dy > StepMin && dy <= 2.05f && Q.name.StartsWith("Vault")) { e.move = Move.Walk; e.cost = 1f; }   // STEP 3 (2026-11-10): a MARKED ledge is vaulted with the speed brought to it: a way on, not a step or a climb
                 else if (gap <= Touch && dy <= StepMax) { e.move = Move.Step; e.cost = 6f; }
                 else
                 {
@@ -1335,7 +1336,7 @@ public static class LevelValidator
                         floorMakesIt = Range(reach.v, Move.Jump, level, 0f, level, reach.v.jumpImpulse, e.dy) >= e.gap + Margin || (e.move != Move.DoubleJump && level >= e.speed);   // or the roof makes the speed the edge's own move needs (a wall run off its end)
                     }
                     // the gate: the hardest move of the line
-                    if (e == seg.gateEdge && e.cost >= 14f && !floorMakesIt)
+                    if (e == seg.gateEdge && e.cost >= 14f && !floorMakesIt && !Q.name.StartsWith("Vault"))   // a marked ledge is vaulted (STEP 3): the rise the graph reads as a second jump costs nothing
                         res.findings.Add(new Finding { severity = e.move == Move.DoubleJump ? 70 : 55, title = e.move == Move.DoubleJump ? "THE ONLY WAY ON COSTS A PIP" : "THE ONLY WAY ON NEEDS " + e.speed.ToString("0", Ci) + " m/s", segment = seg.name, at = e.a,
                             experience = "Everyone has to carry " + e.speed.ToString("0", Ci) + " m/s into this jump" + (e.move == Move.DoubleJump ? " and spend a double jump" : "") + ", or fall. A first-time player at run speed (8 m/s) cannot clear it, so the level stops here for them.",
                             where = "Segment " + seg.name + ": from '" + P.name + "' to '" + Q.name + "', a gap of " + e.gap.ToString("0.0", Ci) + " m " + UpDown(e.dy) + ", at " + Fmt(e.a) + ".",

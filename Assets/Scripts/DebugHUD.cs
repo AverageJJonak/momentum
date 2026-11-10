@@ -129,6 +129,9 @@ public class DebugHUD : MonoBehaviour
             MoveType.Kick => detail == null || detail == "MISS" ? "KICK (whiff)" : detail.StartsWith("SPRINGBOARD") ? detail : $"KICK · {detail}",
             MoveType.Trick => detail ?? "TRICK",   // FRONT FLIP / PERFECT BACKFLIP / LANDED  +x m/s / STUMBLE: the detail is the line
             MoveType.GlitchTech => "??? HIDDEN TECH",
+            MoveType.Vault => "VAULT",
+            MoveType.Grind => "GRIND",
+            MoveType.PoleSwing => "POLE SWING",
             MoveType.Parry => "PARRY",
             MoveType.ParryWhiff => $"PARRY WHIFF · {detail}",
             MoveType.WallHit => $"WALL · {detail} m/s",

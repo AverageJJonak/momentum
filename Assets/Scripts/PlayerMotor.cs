@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 /// Transform position is the BOTTOM of the capsule. Runs in FixedUpdate;
 /// the camera interpolates between PrevPosition and CurrPosition.
 /// </summary>
-public class PlayerMotor : MonoBehaviour
+public partial class PlayerMotor : MonoBehaviour
 {
     public MovementConfig config;
     public PlayerLook look;
@@ -732,6 +732,7 @@ public class PlayerMotor : MonoBehaviour
     void TryJump()
     {
         if (Time.time > jumpBufferedUntil) return;
+        if (TryVaultFromPress()) return;         // STEP 3: a press at a MARKED ledge is a vault (PlayerMotorArchitecture), ahead of the lip, the hop, the wall jump and the kick
         if (TryCornerBoostFromPress()) return;   // a press at a lip: the 90° edge turns your speed into height, ahead of the hop, the wall jump and the kick
         bool coyote = !grounded && !jumpConsumedSinceGrounded
                       && Time.time - lastGroundedTime <= config.coyoteTime;
@@ -1476,6 +1477,10 @@ public class PlayerMotor : MonoBehaviour
                     else
                         velocity = Vector3.ProjectOnPlane(velocity, hit.normal);
                     Attribute(hBefore);
+                }
+                else if (isWall && hit.normal.y > -0.5f && TryVaultAtContact(ref pos, hit, intoSurface, hBefore))
+                {
+                    continue;   // STEP 3, THE VAULT: a marked ledge took the body over with its speed: re-cast the rest of the step from over the lip
                 }
                 else if (isWall && hit.normal.y > -0.5f && TryCornerBoostAtContact(ref pos, hit, intoSurface, hBefore))
                 {

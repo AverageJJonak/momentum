@@ -72,6 +72,9 @@ public class StyleSystem : MonoBehaviour
         MoveType.Anchor => "anchor",
         MoveType.Reel => "reel",
         MoveType.Trick => "trick",   // the flips (TrickSystem): the press is the move; a lazy one pays style and nothing else
+        MoveType.Vault => "vault",
+        MoveType.Grind => "grind",
+        MoveType.PoleSwing => "pole-swing",
         _ => null,
     };
 

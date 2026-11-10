@@ -354,6 +354,7 @@ public class GameFeel : MonoBehaviour
             case MoveType.EdgeBoost: Kick(10f); Burst(0.4f); Shake(0.3f); Play("whoosh_hard", 0.8f, 0.95f); Play("metal", 0.45f, 1f, true); break;   // the kick off a vertical corner: the big one
             case MoveType.WallRun: Kick(2f); Burst(0.15f); Play("whoosh_soft", 0.45f); Play("slide", 0.35f, 1.1f); break;
             case MoveType.WallJump: Kick(5f); Burst(0.3f); Shake(0.15f); Play("whoosh_hard", 0.65f); Play("punch", 0.3f); break;
+            case MoveType.Vault: Kick(4f); Burst(0.25f); Play("whoosh_soft", 0.5f); Play("soft_medium", 0.35f); Play("cloth", 0.3f); break;   // STEP 3: a hand on the ledge, the sleeve, the air
             // --- high effort: hard swish, sometimes a thump ---
             case MoveType.Dash:
                 if (detail != null && detail.StartsWith("REDIRECT")) { Kick(2f); Play("whoosh_hard", 0.45f, 1.1f); }   // a redirect at speed (flat, UP or DOWN): no burst, you kept what you had

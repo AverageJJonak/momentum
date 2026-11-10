@@ -45,6 +45,9 @@ public enum MoveType
     Reel,        // the harpoon's REEL zipped you along the line; detail = "ZIP" / "ZIP  UNIT" (to a heavy unit) (a freshness move)
     Glide,       // the umbrella: detail = OPEN (the canopy opened in the air: the glide), POP (a tap: the fall cancelled, the hop) (not a freshness move)
     Trick,       // THE TRICKS (TrickSystem): on the press FRONT FLIP / BACKFLIP / SIDE FLIP / SPIN, "PERFECT " ahead of it when timed to the apex; on the landing "LANDED  +x m/s" (the perfect's pay) or STUMBLE (touched down mid-arc) (the press is a freshness move)
+    Vault,       // STEP 3 (2026-11-10): a marked ledge gone over with the speed brought to it; detail = PERFECT / GOOD / LATE (a timed press) or CARRIED (none), and the multiplier (a freshness move)
+    Grind,       // STEP 3: a marked rail: detail = ON at the landing, "OFF ×m" at the jump off it (the landing is a freshness move)
+    PoleSwing,   // STEP 3: a marked pole swung round: detail = ON at the grab, "OFF n° ×m" at the release (the grab is a freshness move)
 }
 
 public static class MovementEvents

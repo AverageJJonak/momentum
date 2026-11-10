@@ -567,6 +567,32 @@ public class TrickDescent : Beat
     }
 }
 
+/// VAULT (STEP 3, 2026-11-10): a LEDGE across the line, the next roof standing 1.2 / 1.6 / 1.9 m higher with its
+/// cornice for a lip: run at it and JUMP as you reach it, and the body goes over with the speed it brought (a perfect
+/// press a little more; with no press at all the ledge still lets you over, slower). III has a second ledge ten metres
+/// on. The upper roofs carry the vault's mark (MoveSurface); the validator reads the rise as a jump or a second jump
+public class Vault : Beat
+{
+    public override string Name => "VAULT";
+    public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, v.baseRunSpeed, 10f, 12f);
+    static float High(int d) => Pick(d, 1.2f, 1.6f, 1.9f);
+    public override string Note(LevelMetricsMath.Values v, int d) => "a ledge " + F1(High(d)) + " m high" + (d >= 3 ? ", then another" : "") + " · run at it and JUMP as you reach it: over, with your speed";
+    public override float Build(Frame f, int d)
+    {
+        float s = EntrySpeed(f.v, d), h = High(d);
+        f.Deck(0f, 8f, 0f, HalfW, "Launch"); f.Line(0f, 0.5f, 7.5f, 0f);
+        MoveSurface.Mark(f.Deck(8f, 18f, h, HalfW, "VaultLedge"), MoveSurface.Kind.Vault); f.Line(0f, 8.5f, 17.5f, h);
+        float z = 18f, y = h;
+        if (d >= 3)
+        {
+            MoveSurface.Mark(f.Deck(18f, 28f, 2f * h, HalfW, "VaultLedge"), MoveSurface.Kind.Vault); f.Line(0f, 18.5f, 27.5f, 2f * h);
+            z = 28f; y = 2f * h;
+        }
+        f.Advance(z, y);
+        return s;
+    }
+}
+
 public static class BeatLibrary
 {
     /// The speed a beat expects at difficulty `d`, from a checkpoint named for it ("HIDDEN ROUTE II"): the validator times
@@ -601,7 +627,7 @@ public static class BeatLibrary
     /// Every beat, in the order the gym lays them out (the BREATHER went on 2026-10-29: a long flat straight is speed for nothing; the TRICK DESCENT came on 2026-11-10 when CONTROL lost its hop stones)
     public static readonly List<Beat> All = new List<Beat>
     {
-        new GapJump(), new WallrunChain(), new SlideTunnel(), new RampLaunch(), new Drop(), new TrickDescent(), new Control(),
+        new GapJump(), new WallrunChain(), new SlideTunnel(), new RampLaunch(), new Drop(), new TrickDescent(), new Vault(), new Control(),
         new Fork(), new Skip(), new TechCheck(), new HiddenRoute(), new Turn(),
     };
 }

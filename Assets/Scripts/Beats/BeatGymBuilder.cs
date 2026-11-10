@@ -28,6 +28,7 @@ public static class BeatGymBuilder
         LevelKit.Init();
         LevelKit.SetZone(Zone.Utopia);
         DecoKit.BeginBuild();
+        MoveSurface.Forget();
         LevelSections.Begin(7, BaseY);
         var root = new GameObject("BeatGym").transform;
         var v = LevelMetrics.Read(config);
