@@ -199,6 +199,20 @@ public class Frame
             DecoKit.Place(root, "gate_transom", P((openL + openR) * 0.5f, y + clear + 1f - DecoKit.Proud, z + face * (0.45f + DecoKit.Proud)), Quaternion.LookRotation(F * face, Vector3.up), new Vector3(2f, 1f, 0.1f));
     }
 
+    /// A BAR across the line at `z` (2026-11-10; the user, having played the gates: "they kill the flow", so a low slot
+    /// stands only where the slide IS the move): a beam a metre deep whose underside is `clear` over the floor at `y`, a
+    /// post under each end down to the ground. Only a slide passes under; nothing stands above it, so it reads as a beam
+    /// to duck, and a second jump clears it. Named like a portal's pieces: the validator reads the beam as a ceiling
+    public void Bar(float z, float y, float halfW, float clear = 1.25f, bool leftPost = true, bool rightPost = true, float x = 0f)
+    {
+        const float d = 0.45f;
+        float foot = Structural ? groundY : y - 1f;
+        float x0 = x - halfW - (leftPost ? 0.7f : 0.1f), x1 = x + halfW + (rightPost ? 0.7f : 0.1f);
+        Mass(leftPost ? x - halfW - 0.1f : x0, rightPost ? x + halfW + 0.1f : x1, y + clear, y + clear + 1f, z - d, z + d, "Lintel");
+        if (leftPost) Mass(x0, x - halfW - 0.1f, foot, y + clear + 1f, z - d, z + d, "Post");
+        if (rightPost) Mass(x + halfW + 0.1f, x1, foot, y + clear + 1f, z - d, z + d, "Post");
+    }
+
     /// A HOP STONE: a floor `wide` across and `deep` along the line, centred at (x, z), its top at y. Its depth is the
     /// landing's tolerance: the arc the stone is spaced for lands sixty percent of the way across it
     public GameObject Stone(float x, float z, float y, float wide, float deep, string name = "ControlStone")
