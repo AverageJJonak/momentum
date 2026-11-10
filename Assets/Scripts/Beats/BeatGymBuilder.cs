@@ -18,7 +18,7 @@ using UnityEngine;
 /// </summary>
 public static class BeatGymBuilder
 {
-    const float BaseY = 40f, HalfW = 5f, PadHalfW = 2.5f, SlopeDeg = 12f, GroundBelow = 340f;   // the row descends about 260 m (the beats' own drops and 2.6 m a bend); the ground stays under the kill floor
+    const float BaseY = 40f, HalfW = 5f, PadHalfW = 2.5f, SlopeDeg = 12f, GroundBelow = 480f;   // the row descends about 355 m (the beats' own drops, the trick descent's roofs and 2.6 m a bend); the ground stays under the kill floor
     const float FacadeLook = 14f, GateLook = 15f;
     /// The validator's check: build the gym with the safe wall heights real levels use, not the 14 m look (LevelValidator.ValidateGymPlainWalls)
     public static bool PlainWalls;

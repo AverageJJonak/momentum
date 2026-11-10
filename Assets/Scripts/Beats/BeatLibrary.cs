@@ -423,58 +423,32 @@ public class Turn : Beat
     }
 }
 
-/// CONTROL (2026-10-29; the user: "a new beat type built around precision instead of speed: tight platforms, short
-/// jumps, turns, where going too fast makes you fail"). FIVE HOP STONES, three metres square, stepping left and right
-/// of the line, each spaced so the clean arc at the speed the beat names lands halfway across the next: slower falls
-/// short, a fifth faster (a perfect hop's worth, ×1.18) is at the far edge and more is off it — the speed has to be
-/// KEPT with lazy hops, and steered. Between the third and the fourth stone the gap is a WALL RUN along a facade
-/// (2026-11-04: every jump sequence mixes in another move). Then I lands on a square and turns the corner on the ground (a turn at speed is a flight off
-/// the square) to a short hop and the exit; II runs a 1.2 m beam with a kink (a pad to turn on) and III a 1 m beam
-/// with two, and both end on a short landing under a portal. The stones and beams stand over nothing: too fast is a fall
+/// CONTROL (2026-10-29; the user: "a new beat type built around precision instead of speed … where going too fast makes
+/// you fail"). THE BEAM WALK since 2026-11-10: the five hop stones and the wall run between them are gone (the user,
+/// after playing: "the platforms are way too small and awkwardly spaced out, there's nothing unique or fun about it":
+/// small pads spaced to the centimetre do not work in first person at speed; the TRICK DESCENT took their place as the
+/// gym's platforming). What is left is VHOLUME's kind of control, a thin walkway taken at pace: I a straight 1.5 m beam
+/// eight metres long; II a 1.2 m beam with a kink (a pad to turn on); III a 1 m beam with two. Each ends on a short
+/// landing under a portal. The beams stand over nothing: too fast into a kink is a fall
 public class Control : Beat
 {
     public override string Name => "CONTROL";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, v.baseRunSpeed, 10f, 12f);
-    public override string Note(LevelMetricsMath.Values v, int d) => "KEEP " + F0(EntrySpeed(v, d)) + " m/s, no more: five stones " + F1(StoneGap(v, d)) + " m apart, a WALL RUN from the third to the fourth" + (d <= 1 ? ", the corner, a hop" : d == 2 ? ", a beam with a kink, the portal" : ", a 1 m beam with two kinks, the portal") + " · too fast is a fall";
-    static float StoneDeep(int d) => 3f;
-    static float StoneGap(LevelMetricsMath.Values v, int d) => BeatMath.Reach(v, Pick(d, v.baseRunSpeed, 10f, 12f), 0f) - 0.5f * StoneDeep(d);
+    public override string Note(LevelMetricsMath.Values v, int d) => "KEEP " + F0(EntrySpeed(v, d)) + " m/s along the beam" + (d <= 1 ? ": 1.5 m wide and straight, then the portal" : d == 2 ? ": 1.2 m wide with a kink, then the portal" : ": 1 m wide with two kinks, then the portal") + " · too fast is a fall";
     public override float Build(Frame f, int d)
     {
-        float s = EntrySpeed(f.v, d), deep = StoneDeep(d), gap = StoneGap(f.v, d);
-        const float wide = 3f, offset = 1.25f, beamLen = 5f;
+        float s = EntrySpeed(f.v, d);
+        const float beamLen = 5f;
         f.Deck(0f, 4f, 0f, HalfW, "ControlLaunch"); f.Line(0f, 0.5f, 3.5f, 0f);
-        // the stones: left, right, left… of the line, one arc apart, and between the third and the fourth a WALL RUN (2026-11-04;
-        // the user: "every jump sequence mixes in at least one other move"): that gap is more than any hop at this speed
-        // makes (1.4 times the clean reach) and about 70% of what a wall run and the jump off it carry, with a FACADE just
-        // outside the fourth stone's edge; the wall ends where a jump off its end lands in the middle of the stone. A tower
-        // face a precise hop reaches, runs and drops off: the speed still has to be KEPT, not built
         float z = 4f;
-        float wallGap = Mathf.Max(1.4f * BeatMath.Reach(f.v, s, 0f) + 0.5f, 0.7f * BeatMath.WallRunCarry(f.v, s, 0f));
-        var offWall = LevelMetricsMath.WallJump(f.v, s, 0f);
-        float jumpOff = LevelMetricsMath.Jump(f.v, offWall.h, offWall.vy, 0f, false).distance;
-        for (int i = 0; i < 5; i++)
-        {
-            if (i == 3)
-            {
-                float wallX = -(offset + wide * 0.5f + 0.6f);   // the fourth stone stands left of the line: the wall is just outside its left edge, and the jump off it lands on the stone
-                float wallLen = Mathf.Clamp(wallGap + deep * 0.5f - jumpOff - 0.5f, 3f, wallGap - 1.5f);
-                f.Wall(wallX, z + 0.5f, z + 0.5f + wallLen, -1f, 4f);
-                z += wallGap;
-            }
-            else z += gap;
-            f.Stone(i % 2 == 0 ? offset : -offset, z + deep * 0.5f, 0f, wide, deep);
-            z += deep;
-        }
-        z += gap;
         if (d <= 1)
         {
-            // the square and the corner: the run turns LEFT on the ground (the last stone stands right of the line, so the
-            // exit is as far from it as the square allows), hops a four-metre gap and runs the exit deck; from the stone the
-            // exit is eight metres off, a hop the stones' speed cannot make, so the corner cannot be skipped
-            f.Deck(z, z + 6f, 0f, 3f, "ControlLanding"); f.LineBetween(0f, z + 0.5f, 0f, z + 3f, 0f); f.LineBetween(0f, z + 3f, -2.5f, z + 3f, 0f);
-            f.Advance(z + 3f, 0f); f.Turn(-90f); f.Advance(3f + 4f, 0f);
-            f.Deck(0f, 8f, 0f, 3f, "ControlExit"); f.Line(0f, 0.5f, 7.5f, 0f);
-            f.Advance(8f, 0f);
+            // I: the walkway on its own, wide and straight: eight metres to learn that a beam is only a narrow floor
+            f.Deck(z, z + 4f, 0f, 2f, "ControlLanding"); f.Line(0f, z + 0.5f, z + 4f, 0f); z += 4f;
+            f.Beam(0f, z, 0f, z + 8f, 0f, 1.5f); f.Line(0f, z, z + 8f, 0f); z += 8f;
+            f.Deck(z, z + 4f, 0f, 2f, "ControlLanding"); f.Line(0f, z + 0.5f, z + 3.5f, 0f);
+            f.Portal(z + 4f, 0f, 2f);
+            f.Advance(z + 4f, 0f);
             return s;
         }
         float beamW = d == 2 ? 1.2f : 1f, pad = d == 2 ? 2.4f : 2f;
@@ -501,6 +475,57 @@ public class Control : Beat
         f.Deck(zk, zk + 4f, 0f, 2f, "ControlLanding", xk); f.LineBetween(xk, zk + 0.5f, xk, zk + 3.5f, 0f);
         f.Portal(zk + 4f, 0f, 2f, 2.2f, 5.5f, true, true, xk);
         f.origin = f.P(xk, 0f, zk + 4f);
+        return s;
+    }
+}
+
+/// TRICK DESCENT (2026-11-10; the user threw out the hop stones, "the platforms are way too small and awkwardly spaced
+/// out, there's nothing unique or fun about it", and picked this in their place). Platforming as BIG AIRS, not small
+/// targets: a tower's setbacks taken as a cascade. A gate at the mouth (whatever speed was carried in comes down to a
+/// run), a flat roof's edge, then two or three roofs stepping down 4 / 5 / 6 m each, every one a wide pitched roof
+/// sixteen metres long: jump the edge, more than a second in the air (the trick's stage: its prompt is at the apex),
+/// land anywhere on the roof below, SLIDE it (the pitch turns the fall into speed and adds its own), jump its lower
+/// edge, again. The gap off each edge is 70 / 75 / 80% of what the arc from it covers at the speed the roof before
+/// makes (a lazy slide jump off a pitched edge, a plain jump off the first, flat one), and each roof is long enough to
+/// take that arc thrown a good deal faster. No landing is smaller than twelve metres by sixteen. It ends on a flat
+/// run-out with all the speed the cascade made
+public class TrickDescent : Beat
+{
+    public override string Name => "TRICK DESCENT";
+    public override float EntrySpeed(LevelMetricsMath.Values v, int d) => v.baseRunSpeed;
+    const float Deg = 20f, RoofLen = 16f, Edge = 6f;
+    static int Airs(int d) => (int)Pick(d, 2, 3, 3);
+    static float Step(int d) => Pick(d, 4f, 5f, 6f);
+    static float Frac(int d) => Pick(d, 0.7f, 0.75f, 0.8f);
+    public override string Note(LevelMetricsMath.Values v, int d) => Airs(d) + " big airs, each roof " + F0(Step(d)) + " m lower · JUMP the edge, TRICK in the air (over a second), land on the roof, SLIDE it, jump its edge";
+    public override float Build(Frame f, int d)
+    {
+        var v = f.v;
+        float cos = BeatMath.Cos(Deg), sin = BeatMath.Sin(Deg), dz = RoofLen * cos, fall = RoofLen * sin;
+        f.Portal(0.5f, 0f, HalfW);   // the mouth: a hop chain carried in lands here and runs under, so the first edge is met at a run
+        f.Deck(0f, Edge, 0f, HalfW, "DescentEdge"); f.Line(0f, 1.5f, Edge - 0.5f, 0f);
+        f.LampPost(HalfW + 0.4f, 0f, Edge - 1f);
+        float z = Edge, y = 0f, s = v.baseRunSpeed;
+        bool pitched = false;
+        for (int k = 0; k < Airs(d); k++)
+        {
+            float h = Step(d);
+            float along = pitched ? s * cos : s;                                    // the horizontal at the edge: a pitched roof's speed runs down its pitch
+            float up = pitched ? v.slideJumpVerticalImpulse : v.jumpImpulse;        // off a slid roof the jump is a slide jump (the lazy one: no multiplier counted)
+            var arc = LevelMetricsMath.Jump(v, along, up, -h, false);
+            float gap = arc.distance * Frac(d);
+            z += gap; y -= h;
+            f.Slope(z, y, z + dz, y - fall, HalfW + 1f, "DescentRoof"); f.LineRun(0f, z, y, z + dz, y - fall);
+            f.Lamp(0f, y - fall + 6f, z + dz);
+            // the speed at this roof's lower edge: the landing turns the fall into speed down the pitch, the slide adds the rest of the roof
+            float vyLand = Mathf.Max(0f, v.gravity * arc.time - up);
+            float landed = Mathf.Max(v.baseRunSpeed, along * cos + vyLand * sin);
+            float landIn = Mathf.Clamp((arc.distance - gap) / cos, 0f, RoofLen);
+            s = BeatMath.SlideGain(v, landed, Deg, RoofLen - landIn);
+            z += dz; y -= fall; pitched = true;
+        }
+        f.Deck(z, z + 8f, y, HalfW, "RunOut"); f.Line(0f, z + 0.5f, z + 7.5f, y);
+        f.Advance(z + 8f, y);
         return s;
     }
 }
@@ -536,10 +561,10 @@ public static class BeatLibrary
         return v.baseRunSpeed;
     }
 
-    /// Every beat, in the order the gym lays them out (the BREATHER went on 2026-10-29: a long flat straight is speed for nothing)
+    /// Every beat, in the order the gym lays them out (the BREATHER went on 2026-10-29: a long flat straight is speed for nothing; the TRICK DESCENT came on 2026-11-10 when CONTROL lost its hop stones)
     public static readonly List<Beat> All = new List<Beat>
     {
-        new GapJump(), new WallrunChain(), new SlideTunnel(), new RampLaunch(), new Drop(), new Control(),
+        new GapJump(), new WallrunChain(), new SlideTunnel(), new RampLaunch(), new Drop(), new TrickDescent(), new Control(),
         new Fork(), new Skip(), new TechCheck(), new HiddenRoute(), new Turn(),
     };
 }
