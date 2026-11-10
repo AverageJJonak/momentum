@@ -26,6 +26,6 @@ public partial class MovementConfig
     [Tooltip("The trick's own drop per use (the core move stays fresh longer), and what a trick gives back to every other move")]
     public float freshnessTrickDrop = 0.2f;
     public float freshnessTrickRefreshOthers = 0.4f;
-    [Tooltip("The HUD's freshness strip under the style card, and the freshness on the feed's lines")]
-    public bool freshnessHud = true;
+    [Tooltip("The HUD's freshness strip under the style card (a cell for every move) and the freshness on the feed's lines. OFF since 2026-11-10: the user, having played with it, \"the indicator on the bottom right that details EVERY MOVE, that is so unnecessary\"")]
+    public bool freshnessHud = false;
 }
