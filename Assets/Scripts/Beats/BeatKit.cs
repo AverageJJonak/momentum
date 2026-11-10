@@ -133,8 +133,8 @@ public class Frame
 
     /// THE DRESSING of a run wall (DecoKit, 2026-11-05; the modeller's brief): fluted panels 2 × 4 m over the face toward the
     /// line, sunk so their ribs stand only 5 cm off the collider the player runs on (the box's face fills the grooves), as
-    /// many whole panels as fit, centred; the top row a window band when there is more than one; a cornice along the top
-    /// edge, proud. Nothing is placed while the pieces are not in Resources/Models
+    /// many whole panels as fit, centred; the top row a window band when there is more than one; a 2 m frieze row over them
+    /// when two metres are left; a cornice along the top edge, proud. Nothing is placed while the pieces are not in Resources/Models
     void DressFacade(float x, float z0, float z1, float yBottom, float h)
     {
         if (!DecoKit.Enabled) return;
@@ -148,6 +148,9 @@ public class Frame
         for (int r = 0; r < rows; r++)
             for (int c = 0; c < cols; c++)
                 DecoKit.Place(root, r == rows - 1 && rows > 1 ? "facade_window_2x4" : "facade_flute_2x4", P(panelX, yBottom + r * 4f, zStart + c * 2f + 1f), rot, new Vector3(2f, 4f, DecoKit.FacadeRelief));
+        if (h - rows * 4f >= 1.9f)   // THE FRIEZE: walls are 6 m (real levels) or 14 m (the gym), panels are 4 m: the two metres left under the cornice take a frieze row, or the bare box shows
+            for (int c = 0; c < cols; c++)
+                DecoKit.Place(root, "facade_frieze_2x2", P(panelX, yBottom + rows * 4f, zStart + c * 2f + 1f), rot, new Vector3(2f, 2f, DecoKit.FacadeRelief));
         int n = Mathf.FloorToInt(len + 0.001f);
         float cStart = z0 + (len - n) * 0.5f;
         for (int i = 0; i < n; i++)
