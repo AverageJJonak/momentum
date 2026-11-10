@@ -157,10 +157,10 @@ public static class LevelMetricsMath
 
     /// THE LIFT (2026-10-29; the user: "wall running gives too much vertical momentum"). A wall run used to keep
     /// whatever rise it was entered with (the motor only caught a fall at -wallRunCatchSpeed): jumped at, a 4 m wall
-    /// lifted the body 6.5 m. Since the user's pick the same day the motor drops any rise on entry, so a run starts
-    /// from the entry pop at most; gravity is nearly off at first; the wall jump off it adds half of any rise still
+    /// lifted the body 6.5 m. The user's pick the same day dropped ALL rise on entry; played, that ran flat ("you just touch
+    /// the ground very fast"), so since 2026-11-10 a run keeps up to wallRunEntryRiseKeep of it and starts from that and the pop; gravity is nearly off at first; the wall jump off it adds half of any rise still
     /// there to its own impulse; a wall touch refunds the double jump. So a run entered with `vyIn` (clamped to zero
-    /// going up: jumping at the wall is the same as running in level; negative when it catches a fall) beside a wall
+    /// going up to the kept part: a jump at the wall climbs a little more than running in level; negative when it catches a fall) beside a wall
     /// whose top is `wallTopAbove` the attach height (the run ends when the feet pass it; the jump off still comes
     /// within the coyote) — or under a `cornice` that high (the head stops the rise there, as against any ceiling) —
     /// lifts: the run's rise to its best moment to jump, the wall jump's apex over the attach height, the double jump
@@ -311,7 +311,7 @@ public static class LevelMetricsMath
         sb.AppendLine();
 
         // 3b. the lift
-        sb.AppendLine("3b. THE LIFT: what a wall run gives in HEIGHT, by how it is entered and how tall the wall is (metres over the point where the body meets the wall; speed does not change the height, only how far along the wall it happens). 'jump' = the run's best jump off it, 'pip' = a double jump after that, 'kick' = a wall kick off a second wall after that. The run keeps the rise it is entered with and adds the pop of " + F(v.wallRunEntryPop) + " m/s; the wall jump adds half of any rise left to its " + F(v.wallRunJumpUpImpulse) + ".");
+        sb.AppendLine("3b. THE LIFT: what a wall run gives in HEIGHT, by how it is entered and how tall the wall is (metres over the point where the body meets the wall; speed does not change the height, only how far along the wall it happens). 'jump' = the run's best jump off it, 'pip' = a double jump after that, 'kick' = a wall kick off a second wall after that. The run keeps up to " + F(v.wallRunEntryRiseKeep) + " m/s of the rise it is entered with (the cap of 2026-11-10; 0 kept none, the flat run of 2026-10-29) and adds the pop of " + F(v.wallRunEntryPop) + " m/s; the wall jump adds half of any rise left to its " + F(v.wallRunJumpUpImpulse) + ".");
         sb.AppendLine("| entered | wall 3 m | wall 4 m | wall 5 m | wall 6 m | wall 8 m | no top | under a 3 m cornice | ");
         sb.AppendLine("|---|---|---|---|---|---|---|---|");
         foreach (var (name, vyIn) in new[] { ("jumping at it (" + F(v.jumpImpulse) + " up)", v.jumpImpulse), ("half a jump up (" + F(v.jumpImpulse * 0.5f) + ")", v.jumpImpulse * 0.5f), ("level (0)", 0f), ("falling (-3)", -3f) })
