@@ -731,6 +731,11 @@ public static class LevelValidator
     // ---------------------------------------------------------------- the snowball (2026-10-29)
 
     const float SnowballCap = 40f;   // the model's ceiling: the fastest the user has gone in the gym (39.1 m/s, Docs/Runs/BeatGym-20261028-144145.csv)
+    /// GATES ARE RARE (2026-11-10; the user, having played the landing gates: "they kill the flow", keep a low slot only where
+    /// the slide is the move). A landing that takes any speed, and a gap a fast arrival clears with a plain jump, are then the
+    /// gym as designed and not defects: they are still counted in the summary line and written in every gap's row, but they
+    /// are no longer listed as findings or scored. False brings the control pass's findings back
+    public static bool GatesAreRare = true;
     const float HopRoom = 3.3f;      // the headroom a hop wants: its apex (1.6 m) and the body (1.8 m); under less a hop bonks and the chain is not counted
     const float StraightMin = 20f;   // a flat this long with headroom is a straight that snowballs
     const float Body = 1.8f;         // the capsule, for the arc's head against a lintel
@@ -1085,6 +1090,7 @@ public static class LevelValidator
             {
                 res.trivial++;
                 float Y = padTrivial ? Yp : Yc;
+                if (!GatesAreRare)
                 res.findings.Add(new Finding { severity = padTrivial ? 30 : 20, title = padTrivial ? "TRIVIAL AT SPEED" : "TRIVIAL WITH SPEED CARRIED IN", segment = seg.name, at = e.a,
                     experience = "A hop chain " + (padTrivial ? "from the reset pad" : "carried in from the beat before") + " arrives here at " + Y.ToString("0", Ci) + " m/s and a plain jump " + (padTrivial ? padWhat : carWhat) + ", with nothing to think about: the beat is sized for " + sized.ToString("0", Ci) + " m/s and tests nothing at this speed" + (e.move == Move.WallRun ? " (the wall run it was built around is not needed)." : e.move == Move.DoubleJump && how == Move.DoubleJump ? " (the pip it was built around is not needed)." : "."),
                     where = "Segment " + seg.name + ": " + gapWord + ", at " + Fmt(e.a) + ".",
@@ -1093,6 +1099,7 @@ public static class LevelValidator
             else if (tol >= SnowballCap - 0.5f && Q.slope < 8f && !control && !skip)
             {
                 res.unpunished++;
+                if (!GatesAreRare)
                 res.findings.Add(new Finding { severity = 15, title = "NO PUNISHMENT FOR SPEED", segment = seg.name, at = e.b,
                     experience = "Taken at any speed up to " + SnowballCap.ToString("0", Ci) + " m/s the move lands on floor and runs on: nothing here asks the player to control their speed, only to have it.",
                     where = "Segment " + seg.name + ": " + gapWord + ", landing at " + Fmt(e.b) + ".",
@@ -1166,7 +1173,7 @@ public static class LevelValidator
             var names = new Dictionary<string, int>(); var whereAt = new Dictionary<string, string>();
             foreach (var p in g.plats)
             {
-                if (p == P || p.col == P.col || p.name == "Cornice" || p.name.EndsWith("Body") || p.name.StartsWith("Hidden")) continue;   // a hidden line's pieces are reached from its own wall by design
+                if (p == P || p.col == P.col || p.name == "Cornice" || p.name == "Lintel" || p.name == "Post" || p.name.EndsWith("Body") || p.name.StartsWith("Hidden")) continue;   // a hidden line's pieces are reached from its own wall by design
                 int po = LineOrder(g, orderOf, p), fo = LineOrder(g, orderOf, P);
                 if (po >= 0 && fo >= 0 && po <= fo) continue;   // a floor of the line behind the player is no skip (a facet the walker hopped over borrows the place of the nearest floor it did stand on: two curves in a row reached each other's earlier, higher facets this way, 2026-11-04)
                 float top = p.YAt(p.Centre.x, p.Centre.z);
@@ -1325,7 +1332,7 @@ public static class LevelValidator
                     {
                         float lip = Mathf.Sqrt(reach.v.baseRunSpeed * reach.v.baseRunSpeed + 2f * LevelMetricsMath.SlideSlopeGain(reach.v, P.slope) * traverse / Mathf.Max(0.3f, Mathf.Cos(P.slope * Mathf.Deg2Rad)));
                         float level = lip * Mathf.Cos(P.slope * Mathf.Deg2Rad);
-                        floorMakesIt = Range(reach.v, Move.Jump, level, 0f, level, reach.v.jumpImpulse, e.dy) >= e.gap + Margin;
+                        floorMakesIt = Range(reach.v, Move.Jump, level, 0f, level, reach.v.jumpImpulse, e.dy) >= e.gap + Margin || (e.move != Move.DoubleJump && level >= e.speed);   // or the roof makes the speed the edge's own move needs (a wall run off its end)
                     }
                     // the gate: the hardest move of the line
                     if (e == seg.gateEdge && e.cost >= 14f && !floorMakesIt)
@@ -1387,7 +1394,7 @@ public static class LevelValidator
                     if (prevE != null)
                     {
                         Vector3 pd = prevE.b - prevE.a; pd.y = 0f;
-                        bool meant = P.name.StartsWith("Settle") || P.name.StartsWith("Control") || P.name.StartsWith("Way") || Q.name.StartsWith("Way");   // the skip's long way (Way…) is built slow: its turns are the price of the safe line   // the gym's settle corners and the control beat's kinks turn on purpose: the turn IS the test
+                        bool meant = P.name.StartsWith("Settle") || P.name.StartsWith("Control") || P.name.StartsWith("Way") || Q.name.StartsWith("Way") || P.name.StartsWith("Bend") || Q.name.StartsWith("Bend");   // and a bend (2026-11-10: eight facets of 11° each; the walker's path across such short floors zigzags and read as a hard turn at the outer wall)   // the skip's long way (Way…) is built slow: its turns are the price of the safe line   // the gym's settle corners and the control beat's kinks turn on purpose: the turn IS the test
                         if (pd.sqrMagnitude > 1e-3f && Vector3.Angle(pd.normalized, dir) >= 60f && !meant)
                         {
                             bool wallAhead = WallAhead(g, e.a, pd.normalized, P.YAt(e.a.x, e.a.z));
