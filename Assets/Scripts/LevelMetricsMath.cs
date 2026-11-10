@@ -25,7 +25,7 @@ public static class LevelMetricsMath
         public float slideActivationSpeed = 6f, slideFriction = 0.6f, slideSlopeAccelMultiplier = 1.5f, slideJumpVerticalImpulse = 7f;
         public float slideJumpHorizontalMultiplier = 1.15f, perfectSlideJumpMinMultiplier = 1.04f, slideJumpFadeStartSpeed = 14f, slideJumpFadeEndSpeed = 22f;
         public float slideEndSpeed = 1f, slideCapsuleHeight = 0.9f, fastfallExtraGravity = 10f;
-        public float wallRunMinSpeed = 6f, wallRunMaxDuration = 1.6f, wallRunGravityFactor = 0.15f, wallRunEntryPop = 1.5f, wallRunCatchSpeed = 1f, wallRunRange = 0.7f;
+        public float wallRunMinSpeed = 6f, wallRunMaxDuration = 1.6f, wallRunGravityFactor = 0.15f, wallRunEntryPop = 1.5f, wallRunCatchSpeed = 1f, wallRunRange = 0.7f, wallRunEntryRiseKeep = 2f;
         public float wallRunJumpNormalImpulse = 6f, wallRunJumpUpImpulse = 7f, wallRunJumpTangentBoost = 1.08f, wallRunJumpInputImpulse = 3f;
         public float wallKickNormalImpulse = 7f, wallKickUpImpulse = 6f, wallKickTangentKeep = 0.8f, wallKickInputImpulse = 3.5f;
         public float dashSpeed = 18f, dashDuration = 0.15f, doubleJumpImpulse = 8.5f, doubleJumpMinGroundClearance = 0.5f;
@@ -126,7 +126,7 @@ public static class LevelMetricsMath
     public static WallRun Run(Values v, float speed, float vyIn)
     {
         float dt = v.fixedDeltaTime, T = v.wallRunMaxDuration;
-        float vy = Math.Min(Math.Max(vyIn, -v.wallRunCatchSpeed), 0f) + v.wallRunEntryPop, y = 0f, x = 0f, t = 0f, level = -1f;   // since 2026-10-29 the motor drops a jump's rise on entry
+        float vy = Math.Min(Math.Max(vyIn, -v.wallRunCatchSpeed), Math.Max(0f, v.wallRunEntryRiseKeep)) + v.wallRunEntryPop, y = 0f, x = 0f, t = 0f, level = -1f;   // the motor keeps a capped part of a jump's rise on entry (wallRunEntryRiseKeep, 2026-11-10; 0 was the clamp of 2026-10-29)
         for (int i = 0; t < T && i < 20000; i++)
         {
             float life = Math.Min(1f, t / T);
@@ -168,7 +168,7 @@ public static class LevelMetricsMath
     public static Lift WallLift(Values v, float vyIn, float wallTopAbove, float cornice = float.PositiveInfinity)
     {
         float dt = v.fixedDeltaTime, T = v.wallRunMaxDuration;
-        float vy = Math.Min(Math.Max(vyIn, -v.wallRunCatchSpeed), 0f) + v.wallRunEntryPop, y = 0f, t = 0f;   // the motor drops a jump's rise on entry (2026-10-29): a run starts from the pop at most
+        float vy = Math.Min(Math.Max(vyIn, -v.wallRunCatchSpeed), Math.Max(0f, v.wallRunEntryRiseKeep)) + v.wallRunEntryPop, y = 0f, t = 0f;   // the motor keeps a capped part of a jump's rise on entry (wallRunEntryRiseKeep): a run starts from that and the pop
         float headroom = Math.Max(0f, cornice - v.capsuleHeight);
         var best = new Lift(); float bestApex = float.NegativeInfinity;
         void Consider()
