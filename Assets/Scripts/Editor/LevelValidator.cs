@@ -1065,7 +1065,7 @@ public static class LevelValidator
             if (e.move == Move.Drop || e.gap < 1.5f) continue;
             var P = g.plats[e.from]; var Q = g.plats[e.to];
             float sized = Mathf.Max(seg.sized, e.speed);
-            if (skip && (Q.name.StartsWith("Settle") || Q.name.StartsWith("Bend") || P.name.StartsWith("Bend") || Mathf.Max(Yp, Yc) < 0.8f * sized)) continue;   // a hop onto the settle square, or from or onto a bend facet (a bend is cut by hopping round it; the beat after it is the test), is the corner's own business; a skip the rider is nowhere near fast enough for is not news
+            if (skip && (Q.name.StartsWith("Settle") || Q.name.StartsWith("Bend") || P.name.StartsWith("Bend") || P.name.StartsWith("Descent") || Mathf.Max(Yp, Yc) < 0.8f * sized)) continue;   // a hop onto the settle square, or from or onto a bend facet (a bend is cut by hopping round it; the beat after it is the test), is the corner's own business; a skip the rider is nowhere near fast enough for is not news
             Move how = HowOf(v, e, sized);
             // the move's tolerance: up from the sized speed until its landing is a lintel or nothing
             float tol = SnowballCap; string then = null;
@@ -1076,7 +1076,7 @@ public static class LevelValidator
             }
             // trivial: a plain jump at the speed the snowball arrives with lands clean, well over the sized speed
             int padFate = Fate(g, v, e, Yp, Move.Jump, out string padWhat), carFate = Fate(g, v, e, Yc, Move.Jump, out string carWhat);
-            bool control = Q.name.StartsWith("Control") || Q.name.StartsWith("Settle") || Q.name.StartsWith("Bend") || Q.name == "ResetDeck";   // the gym's reset pad too: a pip across a bend's inside onto the next pad skips only the bend; the beat after the pad is the test   // a landing that is itself a control piece (a square to turn on, a kink pad) is meant to take the arc; what follows it is the test
+            bool control = Q.name.StartsWith("Control") || Q.name.StartsWith("Settle") || Q.name.StartsWith("Bend") || Q.name == "ResetDeck" || Q.name.StartsWith("Descent");   // and the trick descent's roofs (2026-11-10): long on purpose, the air is the test and not the landing   // the gym's reset pad too: a pip across a bend's inside onto the next pad skips only the bend; the beat after the pad is the test   // a landing that is itself a control piece (a square to turn on, a kink pad) is meant to take the arc; what follows it is the test
             bool padTrivial = padFate == 0 && Yp >= TrivialOver * sized && !control;
             bool carTrivial = carFate == 0 && Yc >= TrivialOver * sized && !control;
             string gapWord = (skip ? "THE SKIP " : "") + "'" + P.name + "' → '" + Q.name + "', " + MoveWord(e) + " " + UpDown(e.dy) + ", sized " + sized.ToString("0", Ci) + " m/s";
@@ -1318,8 +1318,17 @@ public static class LevelValidator
                             where = "Segment " + seg.name + ": '" + R.name + "' on '" + P.name + "' at " + Fmt(R.Centre) + ".",
                             why = R.lip ? "A lip or plinth piece on the floor of the line. A bevel or a ramp would carry the run." : "Two solid tops meet with a small rise between them." });
                     }
+                    // a gap off the foot of a downhill roof that a slide from run speed alone makes fast enough for a plain jump is no
+                    // speed gate: the floor before it makes the speed it needs (the ramp launch, the trick descent's roofs; 2026-11-10)
+                    bool floorMakesIt = false;
+                    if (P.slope >= 8f && Vector3.Dot(P.Uphill, dir) < -0.5f)
+                    {
+                        float lip = Mathf.Sqrt(reach.v.baseRunSpeed * reach.v.baseRunSpeed + 2f * LevelMetricsMath.SlideSlopeGain(reach.v, P.slope) * traverse / Mathf.Max(0.3f, Mathf.Cos(P.slope * Mathf.Deg2Rad)));
+                        float level = lip * Mathf.Cos(P.slope * Mathf.Deg2Rad);
+                        floorMakesIt = Range(reach.v, Move.Jump, level, 0f, level, reach.v.jumpImpulse, e.dy) >= e.gap + Margin;
+                    }
                     // the gate: the hardest move of the line
-                    if (e == seg.gateEdge && e.cost >= 14f)
+                    if (e == seg.gateEdge && e.cost >= 14f && !floorMakesIt)
                         res.findings.Add(new Finding { severity = e.move == Move.DoubleJump ? 70 : 55, title = e.move == Move.DoubleJump ? "THE ONLY WAY ON COSTS A PIP" : "THE ONLY WAY ON NEEDS " + e.speed.ToString("0", Ci) + " m/s", segment = seg.name, at = e.a,
                             experience = "Everyone has to carry " + e.speed.ToString("0", Ci) + " m/s into this jump" + (e.move == Move.DoubleJump ? " and spend a double jump" : "") + ", or fall. A first-time player at run speed (8 m/s) cannot clear it, so the level stops here for them.",
                             where = "Segment " + seg.name + ": from '" + P.name + "' to '" + Q.name + "', a gap of " + e.gap.ToString("0.0", Ci) + " m " + UpDown(e.dy) + ", at " + Fmt(e.a) + ".",
