@@ -316,16 +316,23 @@ public class GameFeel : MonoBehaviour
     void Kick(float amount) { if (look != null) look.AddFovKick(amount); }
     void Shake(float amount) { if (look != null) look.AddShake(amount); }
 
-    /// TIMING GRADES (STEP 2, 2026-11-04): a sound per grade over the move's own: a short high chime for PERFECT, a click for
-    /// GOOD, a dull tick for LATE (off with the config's gradeSounds; the perfect hop keeps its kick and burst as before)
+    /// TIMING GRADES (STEP 2; the sounds rebuilt 2026-11-10, the user: "like them, but let's get a combination of real
+    /// sounds instead of generic synthetic sounds"). Every grade is now LAYERED RECORDINGS at their own pitch, two
+    /// voices: WHAT TOUCHED WHAT (a shoe on stone for the hop; a palm and a sleeve on the facade for the wall catch; the
+    /// scrape and the belt for the slide) and HOW WELL (a glass ting and a spill of coins for PERFECT, a metal latch for
+    /// GOOD, a dull drop of leather for LATE). Nothing is pitched up any more: one bell at 1.9× was what read as synthetic
     void OnGrade(MoveType move, TimingGrade grade)
     {
         if (!TimingGrades.Sounds) return;
+        bool hop = move == MoveType.Bhop || move == MoveType.PerfectBhop, slide = move == MoveType.Slide;
+        if (hop) Play("step", grade == TimingGrade.Late ? 0.35f : 0.5f);
+        else if (slide) { Play("slide", 0.35f); Play("belt", 0.25f); }
+        else { Play("soft_medium", 0.3f); Play("cloth", 0.3f); }   // the wall catch
         switch (grade)
         {
-            case TimingGrade.Perfect: Play("bell", 0.28f, 1.9f); break;
-            case TimingGrade.Good: Play("click", 0.4f, 1.25f); break;
-            default: Play("leather", 0.22f, 0.75f); break;
+            case TimingGrade.Perfect: Play("ching", 0.32f); Play("coins", 0.2f); break;
+            case TimingGrade.Good: Play("click", 0.32f); break;
+            default: Play("leather", 0.22f); break;
         }
     }
 
