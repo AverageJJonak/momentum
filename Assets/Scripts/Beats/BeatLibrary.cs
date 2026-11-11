@@ -619,10 +619,21 @@ public class Grind : Beat
             z += run; y -= fall;
             sp = BeatMath.RailGain(f.v, sp, Deg, len);
         }
-        float land = Pick(d, 16f, 20f, 24f);   // a roof a metre under the last rail's end, from the end on: off the end is a drop onto it, a jump lands further down it
-        f.Deck(z, z + land, y - 1f, HalfW, "Landing"); f.Line(0f, z + 0.5f, z + land - 0.5f, y - 1f);
-        f.Advance(z + land, y - 1f);
-        return sp;
+        // the landing: a roof a metre under the last rail's end and a metre past it (off the end is a drop onto it; a jump lands further down it).
+        // I's is flat. II and III leave the last rail fast, so theirs is a PITCHED roof like the gap jump's: land on the pitch, slide it
+        z += 1f; y -= 1f;
+        if (d <= 1)
+        {
+            f.Deck(z, z + 16f, y, HalfW, "Landing"); f.Line(0f, z + 0.5f, z + 15.5f, y);
+            f.Advance(z + 16f, y);
+            return sp;
+        }
+        const float landDeg = 8f;
+        float roof = Pick(d, 16f, 20f, 24f), lr = roof * BeatMath.Cos(landDeg), lf = roof * BeatMath.Sin(landDeg);
+        f.Slope(z, y, z + lr, y - lf, HalfW, "LandingSlope"); f.LineRun(0f, z, y, z + lr, y - lf);
+        f.Deck(z + lr, z + lr + 4f, y - lf, HalfW, "Landing"); f.Line(0f, z + lr + 0.5f, z + lr + 3.5f, y - lf);
+        f.Advance(z + lr + 4f, y - lf);
+        return BeatMath.SlideGain(f.v, sp, landDeg, roof * 0.6f);
     }
 }
 
@@ -647,7 +658,7 @@ public class Swing : Beat
         float x0 = side * HalfW, x1 = side * (HalfW + Leg);
         f.Mass(Mathf.Min(x0, x1), Mathf.Max(x0, x1), yN - 1f, yN, 7f, 17f, "SwingNewLeg", LevelKit.Floor);
         f.Body(Mathf.Min(x0, x1), Mathf.Max(x0, x1), yN - 1.05f, 7f, 17f, "SwingNewLegBody");
-        f.Pole(side * PoleX, PoleZ, 0f);
+        f.Pole(side * PoleX, PoleZ, yN, 4.5f - yN);   // from the new leg's level (a metre down where the corner is cut: its post is never a kerb beside that leg), its lamp at the same height either way
         if (!cut)
             for (int k = 0; k < 6; k++)   // the swing's circle, drawn on the floor it crosses
             {

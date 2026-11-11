@@ -327,11 +327,12 @@ public static class LevelValidator
                 float dy = yb - ya;
                 if (dy > 2f || dy < -40f) continue;
                 a.y = ya; b.y = yb;
-                if (Clearance(g, P, a) < 1.0f || Clearance(g, Q, b) < 1.0f) continue;   // no headroom to leave or to land: not a way
+                bool vaultRise = gap <= Touch && dy > StepMin && dy <= 2.05f && Q.name.StartsWith("Vault");   // STEP 3: at the foot of a MARKED ledge the ledge's own slab hangs over the last of the floor below: that is the ledge, not a ceiling
+                if (Clearance(g, P, a, vaultRise ? Q.col : null) < 1.0f || Clearance(g, Q, b) < 1.0f) continue;   // no headroom to leave or to land: not a way
                 var e = new Edge { from = i, to = j, gap = gap, dy = dy, a = a, b = b };
                 if (gap <= Touch && Mathf.Abs(dy) <= StepMin) { e.move = Move.Walk; e.cost = 0f; }
                 else if (gap <= Touch && dy < -StepMin) { e.move = Move.Drop; e.cost = 0.5f; }
-                else if (gap <= Touch && dy > StepMin && dy <= 2.05f && Q.name.StartsWith("Vault")) { e.move = Move.Walk; e.cost = 1f; }   // STEP 3 (2026-11-10): a MARKED ledge is vaulted with the speed brought to it: a way on, not a step or a climb
+                else if (vaultRise) { e.move = Move.Walk; e.cost = 1f; }   // STEP 3 (2026-11-10): a MARKED ledge is vaulted with the speed brought to it: a way on, not a step or a climb
                 else if (gap <= Touch && dy <= StepMax) { e.move = Move.Step; e.cost = 6f; }
                 else
                 {
@@ -780,7 +781,7 @@ public static class LevelValidator
             else Run(g, v, r, P, entry, e.a, dir, prevE != null ? g.plats[prevE.from].col : null);
             switch (e.move)
             {
-                case Move.Walk: if (P.name.StartsWith("Bend") || Q.name.StartsWith("Bend")) r.bent = true; Gather(r, e.a, Flat(e.a, e.b)); break;
+                case Move.Walk: if (P.name.StartsWith("Bend") || Q.name.StartsWith("Bend") || P.name == "ControlRail" || Q.name == "ControlRail") r.bent = true;   /* a rail (STEP 3) is ridden like a bend: carried, not hopped */ Gather(r, e.a, Flat(e.a, e.b)); break;
                 case Move.Step: Cash(v, r); r.sp = v.baseRunSpeed; break;
                 case Move.Drop:
                     Cash(v, r); r.launches.Add((e, r.sp, r.sp));
@@ -843,7 +844,7 @@ public static class LevelValidator
             if (room < 1.95f) r.sp = Mathf.Max(v.baseRunSpeed, r.sp - v.slideFriction * len);   // a slide on the flat bleeds slideFriction a metre; under run speed you stand and run
             return;
         }
-        if (P.name.StartsWith("Bend")) r.bent = true;   // the gym's bends (2026-11-04): fifteen degrees a facet, carried like a flat, but a hop chain steered round ninety degrees is not a straight
+        if (P.name.StartsWith("Bend") || P.name == "ControlRail") r.bent = true;   // (and a rail, STEP 3: you are carried down it, it is no flat to hop)   // the gym's bends (2026-11-04): fifteen degrees a facet, carried like a flat, but a hop chain steered round ninety degrees is not a straight
         Gather(r, from, len);
     }
 
@@ -1379,7 +1380,8 @@ public static class LevelValidator
                                 why = "Running never gains or keeps speed above 8 m/s on the ground, and a slide fights gravity's share along the slope (" + LevelMetricsMath.SlideSlopeGain(reach.v, Q.slope).ToString("0.0", Ci) + " m/s² against it)." });
                         }
                     }
-                    float clearP = ClearanceAlong(g, P, entry, e.a, out Vector3 lowAt, prevE != null ? g.plats[prevE.from].col : null), clearQ = Clearance(g, Q, e.b, P.col);   // the belly of the floor just stepped off is not a ceiling over this one
+                    bool vaultUp = e.move == Move.Walk && e.dy > StepMin && Q.name.StartsWith("Vault");   // STEP 3: the slab of a MARKED ledge over the last of the floor at its foot is the ledge itself
+                    float clearP = ClearanceAlong(g, P, entry, e.a, out Vector3 lowAt, vaultUp ? Q.col : prevE != null ? g.plats[prevE.from].col : null), clearQ = Clearance(g, Q, e.b, P.col);   // the belly of the floor just stepped off is not a ceiling over this one
                     float clear = Mathf.Min(clearP, clearQ);
                     Vector3 clearAt = clearP <= clearQ ? lowAt : e.b;
                     string clearOver = clearP <= clearQ ? P.name : Q.name;
