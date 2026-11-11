@@ -147,6 +147,7 @@ public partial class PlayerMotor : MonoBehaviour
         transform.position = position;
         PrevPosition = CurrPosition = position;
         velocity = Vector3.zero;
+        ClearArchitectureMoves();   // STEP 3: off any rail, off any pole (PlayerMotorArchitecture)
         grounded = false;
         sliding = false;
         slamming = false;

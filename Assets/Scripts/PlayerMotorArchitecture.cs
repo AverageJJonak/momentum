@@ -107,6 +107,22 @@ public partial class PlayerMotor
     float grindStartTime = float.NegativeInfinity;
     float grindEndTime = float.NegativeInfinity;   // when the feet ran off a rail's end (a jump inside the coyote time is still a jump off the rail)
     public bool Grinding => grinding;
+    /// The piece under the feet, or null in the air (the gym's tools ask which station it belongs to)
+    public Collider GroundCollider => grounded ? groundCollider : null;
+
+    /// A teleport (a respawn, the gym's menu) lets go of a rail and of a pole: neither follows the body to where it is put
+    void ClearArchitectureMoves()
+    {
+        grinding = false;
+        grindRail = null;
+        grindEndTime = float.NegativeInfinity;
+        groundCollider = null;
+        poleSwinging = false;
+        pole = null;
+        poleArmed = null;
+        poleNear = null;
+        PoleTurnRate = 0f;
+    }
 
     /// Each tick, after the ground check and before the slide's: feet on a MARKED rail are grinding (a slide ends: the
     /// rail carries you), feet on anything else are not. Rail to rail without leaving the ground is one grind
