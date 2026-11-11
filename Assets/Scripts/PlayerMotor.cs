@@ -441,6 +441,7 @@ public partial class PlayerMotor : MonoBehaviour
 
         GroundCheck();
         if (grounded) EndWallRun();
+        UpdateGrind();   // STEP 3: feet on a MARKED rail (PlayerMotorArchitecture); nothing happens on any other floor
         UpdateSlideState();
         TryDash();
         TryJump();
@@ -456,6 +457,10 @@ public partial class PlayerMotor : MonoBehaviour
         {
             // Horizontal control locked; keep falling
             velocity += Vector3.down * (config.gravity * GravityScale * dt);
+        }
+        else if (grounded && grinding)
+        {
+            GrindMove(dt);   // STEP 3, THE RAIL GRIND: the rail's line, its gain, the pull onto it
         }
         else if (grounded && sliding)
         {
@@ -595,7 +600,7 @@ public partial class PlayerMotor : MonoBehaviour
             if (!grounded || !crouchHeld || HorizontalSpeed < config.slideEndSpeed)
                 sliding = false;
         }
-        else if (grounded && crouchHeld && !slamming && HorizontalSpeed > config.slideActivationSpeed)
+        else if (grounded && crouchHeld && !slamming && !grinding && HorizontalSpeed > config.slideActivationSpeed)   // (on a marked rail the rail carries you: STEP 3)
         {
             sliding = true;
             slideStartTime = Time.time;
@@ -840,6 +845,7 @@ public partial class PlayerMotor : MonoBehaviour
             }
         }
 
+        string grindOff = GrindJumpOff(ref v);   // STEP 3: a jump off a marked rail takes the rail's multiplier (null off a rail: nothing changes)
         velocity = v;
         Attribute(hJumpBefore);
         grounded = false;
@@ -847,6 +853,7 @@ public partial class PlayerMotor : MonoBehaviour
         jumpedThisTick = true;
         jumpBufferedUntil = float.NegativeInfinity;
         if (hasPendingEmit) MovementEvents.Emit(pendingEmit, pendingDetail);
+        if (grindOff != null) MovementEvents.Emit(MoveType.Grind, grindOff);
     }
 
     // A press just before landing means "bhop", not "double jump": if falling
@@ -1210,6 +1217,7 @@ public partial class PlayerMotor : MonoBehaviour
         {
             grounded = true;
             groundNormal = hit.normal;
+            groundCollider = hit.collider;
             lastGroundedTime = Time.time;
             jumpConsumedSinceGrounded = false;
             airJumpsUsed = 0;
@@ -1392,6 +1400,7 @@ public partial class PlayerMotor : MonoBehaviour
         {
             transform.position += Vector3.down * Mathf.Max(hit.distance - Skin, 0f);
             groundNormal = hit.normal;
+            groundCollider = hit.collider;
             // Deliberately UNattributed: this magnitude-preserving realign can
             // convert fall speed to horizontal at slope-to-flat transitions at
             // very high speed — that's an intentional hidden-tech gap

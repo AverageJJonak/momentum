@@ -28,4 +28,20 @@ public partial class MovementConfig
     public float vaultAutoKeep = 0.8f;
     [Tooltip("The hop the vault leaves the ledge with, metres a second up")]
     public float vaultUp = 3f;
+
+    [Header("RAIL GRIND (STEP 3) · a marked rail carries you along its line")]
+    [Tooltip("Off: a marked rail is a narrow floor like any other")]
+    public bool grindEnabled = true;
+    [Tooltip("The least speed a rail carries you at: land slower and the rail brings you up to this")]
+    public float grindMinSpeed = 8f;
+    [Tooltip("What a level rail adds each second, metres a second (a rail that falls adds gravity's share on top, one that climbs takes it)")]
+    public float grindAccel = 2f;
+    [Tooltip("The rail's own gain stops at this speed (speed brought to the rail above it is kept)")]
+    public float grindMaxSpeed = 40f;
+    [Tooltip("How hard the rail pulls the feet onto its line, per second")]
+    public float grindSnap = 8f;
+    [Tooltip("A jump off a rail multiplies the speed (the gain above 1 scales with freshness)")]
+    public float grindJumpMultiplier = 1.05f;
+    [Tooltip("The rail must have been ridden this long for the jump off it to pay (a touch and a hop is a hop)")]
+    public float grindJumpMinTime = 0.3f;
 }

@@ -213,6 +213,31 @@ public class Frame
         if (rightPost) Mass(x + halfW + 0.1f, x1, foot, y + clear + 1f, z - d, z + d, "Post");
     }
 
+    /// A RAIL to grind (STEP 3, 2026-11-10): a brass rail whose top runs from (z0, y0) to (z1, y1) at `x`, a lit line
+    /// along it, on posts to the ground. What is stood on is a lane `catchHalf` each side of the rail with no picture:
+    /// the rail pulls the feet onto its line once they land, so the lane is the magnet's reach and a rail is a big
+    /// landing, never a precision one. Marked for the motor (MoveSurface) and named for the validator like a beam: a
+    /// narrow way that is meant
+    public GameObject Rail(float x, float z0, float y0, float z1, float y1, float catchHalf = 1.5f)
+    {
+        float dz = z1 - z0, dy = y1 - y0, len = Mathf.Sqrt(dz * dz + dy * dy);
+        var rot = Rot * Quaternion.Euler(Mathf.Atan2(-dy, dz) * Mathf.Rad2Deg, 0f, 0f);
+        Vector3 topMid = P(x, (y0 + y1) * 0.5f, (z0 + z1) * 0.5f), up = rot * Vector3.up;
+        var lane = Box(topMid - up * 0.15f, new Vector3(catchHalf * 2f, 0.3f, len), LevelKit.Dark, "ControlRail", rot);
+        lane.GetComponent<MeshRenderer>().enabled = false;   // (the welder leaves a renderer that is off alone)
+        MoveSurface.Mark(lane, MoveSurface.Kind.Grind);
+        LevelKit.Prim(root, topMid - up * 0.07f, new Vector3(0.14f, 0.14f, len), LevelKit.Brass, "Rail", PrimitiveType.Cube, rot);
+        LevelKit.LineRun(root, P(x, y0, z0), P(x, y1, z1), zone, 0.05f);
+        int posts = Mathf.Max(2, Mathf.CeilToInt(Mathf.Abs(dz) / 7f) + 1);
+        for (int i = 0; i < posts; i++)
+        {
+            float t = (float)i / (posts - 1), inset = 0.3f / Mathf.Max(0.6f, Mathf.Abs(dz));
+            t = Mathf.Lerp(inset, 1f - inset, t);
+            Post(x, Mathf.Lerp(z0, z1, t), Mathf.Lerp(y0, y1, t) - 0.1f, 0.3f);
+        }
+        return lane;
+    }
+
     /// A HOP STONE: a floor `wide` across and `deep` along the line, centred at (x, z), its top at y. Its depth is the
     /// landing's tolerance: the arc the stone is spaced for lands sixty percent of the way across it
     public GameObject Stone(float x, float z, float y, float wide, float deep, string name = "ControlStone")
@@ -294,6 +319,8 @@ public static class BeatMath
     }
     /// The speed a slide of `len` metres down a `deg` slope reaches from `from`
     public static float SlideGain(LevelMetricsMath.Values v, float from, float deg, float len) => Mathf.Sqrt(from * from + 2f * LevelMetricsMath.SlideSlopeGain(v, deg) * len);
+    /// The speed a rail of `len` metres falling `deg` hands on from `from` (STEP 3: the rail's own gain and gravity's share of the fall; the rail's least speed if less was brought)
+    public static float RailGain(LevelMetricsMath.Values v, float from, float deg, float len) { float s = Mathf.Max(from, v.grindMinSpeed); return Mathf.Sqrt(s * s + 2f * (v.grindAccel + v.gravity * Sin(deg)) * len); }
     /// How far a wall run at `speed` stays level, and how far the jump off it then carries to a landing `dy` below
     public static float WallRunCarry(LevelMetricsMath.Values v, float speed, float dy)
     {

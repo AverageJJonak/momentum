@@ -96,4 +96,82 @@ public partial class PlayerMotor
         MovementEvents.Emit(MoveType.Vault, (timed ? TimingGrades.Label(grade) : "CARRIED") + $" ×{mult:0.00}");
         if (timed && config.gradesEnabled) TimingGrades.Report(config, MoveType.Vault, grade);
     }
+
+    // ---------------------------------------------------------------- THE RAIL GRIND
+
+    Collider groundCollider;                       // what the feet are on: the ground check and the snap write it; read only while grounded
+    bool grinding;
+    MoveSurface grindRail;
+    float grindSign = 1f;                          // which way along the rail's line
+    float grindGain = 1f;                          // the freshness the rail was caught at: the jump off it is paid at this
+    float grindStartTime = float.NegativeInfinity;
+    float grindEndTime = float.NegativeInfinity;   // when the feet ran off a rail's end (a jump inside the coyote time is still a jump off the rail)
+    public bool Grinding => grinding;
+
+    /// Each tick, after the ground check and before the slide's: feet on a MARKED rail are grinding (a slide ends: the
+    /// rail carries you), feet on anything else are not. Rail to rail without leaving the ground is one grind
+    void UpdateGrind()
+    {
+        MoveSurface rail = config.grindEnabled && grounded ? MoveSurface.Of(groundCollider) : null;
+        if (rail != null && rail.kind != MoveSurface.Kind.Grind) rail = null;
+        if (rail == null)
+        {
+            if (grinding) grindEndTime = grounded ? float.NegativeInfinity : Time.time;   // stepped off onto a floor: over. Ran off the end: the coyote time
+            grinding = false;
+            grindRail = null;
+            return;
+        }
+        if (grinding && rail == grindRail) return;
+        rail.Line(out Vector3 a, out Vector3 b);
+        Vector3 axis = (b - a).normalized;
+        float along = Vector3.Dot(velocity, axis);
+        if (Mathf.Abs(along) < 0.5f)   // all but still: downhill, or the way you face on a level rail
+            along = Mathf.Abs(axis.y) > 0.01f ? -axis.y : Vector3.Dot(Quaternion.Euler(0f, look.Yaw, 0f) * Vector3.forward, axis);
+        grindSign = along >= 0f ? 1f : -1f;
+        bool caught = !grinding;
+        grinding = true;
+        grindRail = rail;
+        sliding = false;
+        if (!caught) return;
+        velocity = axis * (grindSign * HorizontalSpeed);   // the catch turns ALL the speed brought to the rail down its line (no gain: a landing across the rail loses nothing either)
+        grindStartTime = Time.time;
+        grindGain = StyleSystem.GainScale(MoveType.Grind);
+        MovementEvents.Emit(MoveType.Grind, "ON");
+    }
+
+    /// The tick's movement on a rail: the speed along its line (the rail's least if you brought less), a little more each
+    /// second and gravity's share of a rail that falls, and the feet pulled onto the line. No friction, no steering: the
+    /// rail is the line; the way off is a jump, or its end
+    void GrindMove(float dt)
+    {
+        grindRail.Line(out Vector3 a, out Vector3 b);
+        Vector3 axis = (b - a).normalized * grindSign;
+        float hBefore = HorizontalSpeed;
+        float least = Mathf.Max(0f, config.grindMinSpeed);
+        float speed = Mathf.Max(Vector3.Dot(velocity, axis), least);
+        float gain = config.grindAccel + config.gravity * -axis.y;
+        if (gain <= 0f) speed = Mathf.Max(least, speed + gain * dt);
+        else if (speed < config.grindMaxSpeed) speed = Mathf.Min(config.grindMaxSpeed, speed + gain * dt);
+        Vector3 flat = new Vector3(axis.x, 0f, axis.z).normalized;
+        Vector3 off = a + Vector3.Project(transform.position - a, b - a) - transform.position;
+        off.y = 0f;
+        off -= flat * Vector3.Dot(off, flat);   // only the offset ACROSS the rail
+        velocity = axis * speed + Vector3.ClampMagnitude(off * Mathf.Min(Mathf.Max(0f, config.grindSnap), 1f / dt), least);   // (the pull is never faster across than the rail's least speed along)
+        Attribute(hBefore);
+    }
+
+    /// A jump off a rail (TryJump asks as it leaves the ground): once the rail has been ridden a moment the jump takes the
+    /// rail's multiplier with it, at the freshness the rail was caught at. Returns the event's detail, or null off a rail
+    string GrindJumpOff(ref Vector3 v)
+    {
+        if (!grinding && Time.time - grindEndTime > config.coyoteTime) return null;
+        bool pays = Time.time - grindStartTime >= config.grindJumpMinTime;
+        float mult = pays ? 1f + Mathf.Max(0f, config.grindJumpMultiplier - 1f) * grindGain : 1f;
+        v.x *= mult;
+        v.z *= mult;
+        grinding = false;
+        grindRail = null;
+        grindEndTime = float.NegativeInfinity;
+        return $"OFF ×{mult:0.00}";
+    }
 }

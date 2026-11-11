@@ -30,6 +30,7 @@ public static class LevelMetricsMath
         public float wallKickNormalImpulse = 7f, wallKickUpImpulse = 6f, wallKickTangentKeep = 0.8f, wallKickInputImpulse = 3.5f;
         public float dashSpeed = 18f, dashDuration = 0.15f, doubleJumpImpulse = 8.5f, doubleJumpMinGroundClearance = 0.5f;
         public float slamDownSpeed = 30f, slamStorageConversion = 0.6f;
+        public float grindMinSpeed = 8f, grindAccel = 2f, grindJumpMultiplier = 1.05f;   // STEP 3: the rail grind (MovementConfigArchitecture)
         public float perfectBhopSpeedMultiplier = 1.18f, perfectBhopMinMultiplier = 1.08f, perfectBhopFadeStartSpeed = 18f, perfectBhopFadeEndSpeed = 30f, perfectBhopWindow = 0.05f;
         public float capsuleHeight = 1.8f, capsuleRadius = 0.4f, maxSlopeAngle = 45f;
         public float cameraRollFall = 14f;

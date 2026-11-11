@@ -593,6 +593,39 @@ public class Vault : Beat
     }
 }
 
+/// GRIND (STEP 3, 2026-11-10): RAILS. A brass rail leaves the roof's edge and falls six degrees: run onto it and it
+/// carries you down its line, faster every metre; JUMP off it and the jump takes a little more with it. I is one rail
+/// with a roof under its end (ride it off the end and you drop onto the roof: the rail alone is the lesson). II is two
+/// rails with six metres of air between them: the jump off the first is the way on. III sets the second rail three
+/// metres to the side and adds a third back on the line. A rail's landing is the three metres round it (the rail pulls
+/// the feet in), so it is a big landing and not a precision one
+public class Grind : Beat
+{
+    public override string Name => "GRIND";
+    public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, v.baseRunSpeed, 10f, 12f);
+    const float Deg = 6f, Air = 6f, Step = 1.5f;
+    static float RailLen(int d) => Pick(d, 16f, 14f, 12f);
+    public override string Note(LevelMetricsMath.Values v, int d) => (d <= 1 ? "one rail" : (d == 2 ? "two" : "three") + " rails, " + F0(Air) + " m of air between them") + " · run onto the rail: it carries you · JUMP off it for a little more";
+    public override float Build(Frame f, int d)
+    {
+        float s = EntrySpeed(f.v, d), len = RailLen(d), run = len * BeatMath.Cos(Deg), fall = len * BeatMath.Sin(Deg);
+        f.Deck(0f, 6f, 0f, HalfW, "Launch"); f.Line(0f, 0.5f, 5.5f, 0f);
+        float z = 6f, y = -0.02f, sp = s;   // the first rail leaves the roof's edge a hair under its top: run straight onto it
+        int rails = Mathf.Clamp(d, 1, 3);
+        for (int i = 0; i < rails; i++)
+        {
+            if (i > 0) { z += Air; y -= Step; sp *= f.v.grindJumpMultiplier; }
+            f.Rail(d >= 3 && i == 1 ? 3f : 0f, z, y, z + run, y - fall);
+            z += run; y -= fall;
+            sp = BeatMath.RailGain(f.v, sp, Deg, len);
+        }
+        float land = Pick(d, 16f, 20f, 24f);   // a roof a metre under the last rail's end, from the end on: off the end is a drop onto it, a jump lands further down it
+        f.Deck(z, z + land, y - 1f, HalfW, "Landing"); f.Line(0f, z + 0.5f, z + land - 0.5f, y - 1f);
+        f.Advance(z + land, y - 1f);
+        return sp;
+    }
+}
+
 public static class BeatLibrary
 {
     /// The speed a beat expects at difficulty `d`, from a checkpoint named for it ("HIDDEN ROUTE II"): the validator times
@@ -627,7 +660,7 @@ public static class BeatLibrary
     /// Every beat, in the order the gym lays them out (the BREATHER went on 2026-10-29: a long flat straight is speed for nothing; the TRICK DESCENT came on 2026-11-10 when CONTROL lost its hop stones)
     public static readonly List<Beat> All = new List<Beat>
     {
-        new GapJump(), new WallrunChain(), new SlideTunnel(), new RampLaunch(), new Drop(), new TrickDescent(), new Vault(), new Control(),
+        new GapJump(), new WallrunChain(), new SlideTunnel(), new RampLaunch(), new Drop(), new TrickDescent(), new Vault(), new Grind(), new Control(),
         new Fork(), new Skip(), new TechCheck(), new HiddenRoute(), new Turn(),
     };
 }

@@ -156,6 +156,7 @@ public class StyleSystem : MonoBehaviour
             return;
         }
         if (type == MoveType.Trick && detail != null && (detail == "STUMBLE" || detail.StartsWith("LANDED"))) return;   // the landing's verdicts are not moves
+        if ((type == MoveType.Grind || type == MoveType.PoleSwing) && detail != null && detail.StartsWith("OFF")) return;   // STEP 3: the way off a rail or a pole ends the move that began at ON; it is not another
         string key = FreshnessKey(type);
         if (key == null) return;
         Prune();
