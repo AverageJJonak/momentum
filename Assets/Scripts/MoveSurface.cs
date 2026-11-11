@@ -16,7 +16,13 @@ public class MoveSurface : MonoBehaviour
     static readonly Dictionary<Collider, MoveSurface> cache = new Dictionary<Collider, MoveSurface>();
 
     /// Forgets every lookup: a level builder calls this before it builds (the pieces of the level before are gone)
-    public static void Forget() => cache.Clear();
+    public static void Forget() { cache.Clear(); Poles.Clear(); }
+
+    /// Every pole marked since the last Forget: the motor looks through these for one in reach (a level has a handful), so a
+    /// pole needs no solid collider and is never a thing to run into
+    public static readonly List<MoveSurface> Poles = new List<MoveSurface>();
+    /// A pole reaches this far above and below its middle
+    public float halfHeight = 2.5f;
 
     /// The mark on this collider, or null
     public static MoveSurface Of(Collider c)
@@ -35,6 +41,7 @@ public class MoveSurface : MonoBehaviour
         var m = go.GetComponent<MoveSurface>();
         if (m == null) m = go.AddComponent<MoveSurface>();
         m.kind = k;
+        if (k == Kind.Swing && !Poles.Contains(m)) Poles.Add(m);
         foreach (var c in go.GetComponents<Collider>()) cache[c] = m;
         return m;
     }

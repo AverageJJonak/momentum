@@ -174,4 +174,133 @@ public partial class PlayerMotor
         grindEndTime = float.NegativeInfinity;
         return $"OFF ×{mult:0.00}";
     }
+
+    // ---------------------------------------------------------------- THE POLE SWING
+
+    bool poleSwinging;
+    MoveSurface pole;        // the pole swung round
+    MoveSurface poleArmed;   // the key is held and the body still closing on this pole: the swing begins abeam of it
+    MoveSurface poleNear;    // a pole inside the reach this tick (the whip key is the pole's while there is one)
+    bool poleKeyLast;
+    bool poleHoldSpent;      // this hold of the key has had its swing: let go and press again for another
+    float poleR, poleSign = 1f, poleSpeed, poleTurned, poleGain = 1f;
+    public bool PoleSwinging => poleSwinging;
+    /// The whip key belongs to a pole right now: one is in reach, armed, or being swung round (GrappleAbility asks before it throws)
+    public bool PoleHasWhipKey => poleSwinging || poleArmed != null || poleNear != null;
+    /// How fast the swing is turning the body, degrees a second, signed like yaw (0 off a pole): the look turns with it
+    public float PoleTurnRate { get; private set; }
+
+    float PoleReach() => Mathf.Max(0.5f, config.poleReach) + HorizontalSpeed * Mathf.Max(0f, config.poleReachSeconds);
+
+    static Vector3 Flat(Vector3 v) { v.y = 0f; return v; }
+
+    /// The nearest MARKED pole inside the reach, or null
+    MoveSurface FindPole()
+    {
+        Vector3 at = transform.position + Vector3.up * (currentHeight * 0.5f);
+        float reach = PoleReach(), best = float.MaxValue;
+        MoveSurface found = null;
+        var poles = MoveSurface.Poles;
+        for (int i = 0; i < poles.Count; i++)
+        {
+            var m = poles[i];
+            if (m == null || m.kind != MoveSurface.Kind.Swing || Mathf.Abs(at.y - m.transform.position.y) > m.halfHeight + 1f) continue;
+            float d = Flat(at - m.AxisAt(at.y)).magnitude;
+            if (d < best && d <= reach) { best = d; found = m; }
+        }
+        return found;
+    }
+
+    /// Each tick, before the jump: the whip key pressed beside a marked pole arms the swing (it begins as the body comes
+    /// abeam of the pole, so the turn starts along the way you were going); held, the swing goes on; let go, or a jump,
+    /// or the full turn, and the swing lets go. Nothing happens in a level with no marked pole
+    void UpdatePoleSwing()
+    {
+        bool held = Keybinds.Held(GameAction.Grapple) && !PauseMenu.IsPaused;
+        bool press = held && !poleKeyLast;
+        poleKeyLast = held;
+        if (!held) poleHoldSpent = false;
+        if (!config.poleSwingEnabled || MoveSurface.Poles.Count == 0)
+        {
+            if (poleSwinging) EndPoleSwing(false);
+            poleArmed = null; poleNear = null;
+            return;
+        }
+        if (poleSwinging)
+        {
+            if (Dashing || slamming) EndPoleSwing(false);                                          // taken off it by something else
+            else if (!held || Time.time <= jumpBufferedUntil || pole == null) EndPoleSwing(true);   // let go (a jump lets go as well, and then jumps)
+            return;
+        }
+        poleNear = FindPole();
+        if (poleArmed != null)
+        {
+            if (!held) poleArmed = null;
+            else TryBeginPoleSwing();
+            return;
+        }
+        if ((press || (held && !poleHoldSpent)) && poleNear != null && HorizontalSpeed >= config.poleMinSpeed) { poleArmed = poleNear; TryBeginPoleSwing(); }   // a press in reach, or a key already held on the way in: early is not a miss
+    }
+
+    void TryBeginPoleSwing()
+    {
+        Vector3 rel = Flat(transform.position - poleArmed.AxisAt(transform.position.y));
+        Vector3 vh = Flat(velocity);
+        float dist = rel.magnitude, h = vh.magnitude, reach = PoleReach();
+        if (dist > reach + 1f || h < config.poleMinSpeed) { poleArmed = null; return; }   // went by without closing, or stopped
+        float least = Mathf.Max(0.6f, config.poleRadius);
+        float closing = dist > 0.01f ? -Vector3.Dot(vh, rel) / dist : 0f;
+        if (closing > 0.5f && dist > least) return;   // still coming in: wait for abeam (or the tightest circle)
+
+        pole = poleArmed;
+        poleArmed = null;
+        poleSwinging = true;
+        poleR = Mathf.Clamp(dist, least, Mathf.Max(least, reach));
+        Vector3 r0 = dist > 0.01f ? rel / dist : -vh / h;
+        float side = Vector3.Dot(Quaternion.AngleAxis(90f, Vector3.up) * r0, vh);   // which way round agrees with the way you were going
+        poleSign = side >= 0f ? 1f : -1f;
+        poleSpeed = h;
+        poleTurned = 0f;
+        poleGain = StyleSystem.GainScale(MoveType.PoleSwing);
+        EndWallRun();
+        ReleaseGrappleIfPulling();
+        MovementEvents.Emit(MoveType.PoleSwing, "ON");
+    }
+
+    /// The tick's movement on a pole: round its axis at the radius it was caught at and the speed that was brought, the
+    /// height held. The step is a velocity, so anything in the way is still met
+    void PoleMove(float dt)
+    {
+        Vector3 pos = transform.position, c = pole.AxisAt(pos.y);
+        Vector3 rel = Flat(pos - c);
+        Vector3 r0 = rel.sqrMagnitude > 1e-4f ? rel.normalized : Vector3.forward;
+        float step = poleSpeed / Mathf.Max(0.3f, poleR) * Mathf.Rad2Deg * dt * poleSign;
+        Vector3 next = c + Quaternion.AngleAxis(step, Vector3.up) * (r0 * poleR);
+        float hBefore = HorizontalSpeed;
+        velocity = Flat(next - pos) / dt;
+        Attribute(hBefore);
+        poleTurned += Mathf.Abs(step);
+        PoleTurnRate = step / dt;
+        if (poleTurned >= config.poleMaxTurn) EndPoleSwing(true);
+    }
+
+    /// Letting go: the body leaves along the circle's tangent with the speed it brought, and a swing that turned far
+    /// enough pays its multiplier at the freshness it was caught at. `clean` false = taken off the pole by something else
+    void EndPoleSwing(bool clean)
+    {
+        poleSwinging = false;
+        poleHoldSpent = true;
+        PoleTurnRate = 0f;
+        if (!clean || pole == null) { pole = null; MovementEvents.Emit(MoveType.PoleSwing, "OFF"); return; }
+        Vector3 rel = Flat(transform.position - pole.AxisAt(transform.position.y));
+        Vector3 r0 = rel.sqrMagnitude > 1e-4f ? rel.normalized : Vector3.forward;
+        Vector3 tangent = Quaternion.AngleAxis(90f * poleSign, Vector3.up) * r0;
+        bool pays = poleTurned >= config.poleMinTurn;
+        float mult = pays ? 1f + Mathf.Max(0f, config.poleReleaseMultiplier - 1f) * poleGain : 1f;
+        float hBefore = HorizontalSpeed;
+        velocity = tangent * (poleSpeed * mult);
+        Attribute(hBefore);
+        pole = null;
+        MovementEvents.Emit(MoveType.PoleSwing, $"OFF {poleTurned:0}° ×{mult:0.00}");
+    }
 }

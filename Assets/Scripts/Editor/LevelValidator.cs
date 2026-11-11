@@ -1395,7 +1395,7 @@ public static class LevelValidator
                     if (prevE != null)
                     {
                         Vector3 pd = prevE.b - prevE.a; pd.y = 0f;
-                        bool meant = P.name.StartsWith("Settle") || P.name.StartsWith("Control") || P.name.StartsWith("Way") || Q.name.StartsWith("Way") || P.name.StartsWith("Bend") || Q.name.StartsWith("Bend");   // and a bend (2026-11-10: eight facets of 11° each; the walker's path across such short floors zigzags and read as a hard turn at the outer wall)   // the skip's long way (Way…) is built slow: its turns are the price of the safe line   // the gym's settle corners and the control beat's kinks turn on purpose: the turn IS the test
+                        bool meant = P.name.StartsWith("Settle") || P.name.StartsWith("Control") || P.name.StartsWith("Way") || Q.name.StartsWith("Way") || P.name.StartsWith("Bend") || Q.name.StartsWith("Bend") || P.name.StartsWith("Swing") || Q.name.StartsWith("Swing");   // and a corner with a lamp post on its inside (STEP 3): the pole swing carries the turn   // and a bend (2026-11-10: eight facets of 11° each; the walker's path across such short floors zigzags and read as a hard turn at the outer wall)   // the skip's long way (Way…) is built slow: its turns are the price of the safe line   // the gym's settle corners and the control beat's kinks turn on purpose: the turn IS the test
                         if (pd.sqrMagnitude > 1e-3f && Vector3.Angle(pd.normalized, dir) >= 60f && !meant)
                         {
                             bool wallAhead = WallAhead(g, e.a, pd.normalized, P.YAt(e.a.x, e.a.z));

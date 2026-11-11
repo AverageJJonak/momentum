@@ -443,6 +443,7 @@ public partial class PlayerMotor : MonoBehaviour
         if (grounded) EndWallRun();
         UpdateGrind();   // STEP 3: feet on a MARKED rail (PlayerMotorArchitecture); nothing happens on any other floor
         UpdateSlideState();
+        UpdatePoleSwing();   // STEP 3: the whip key beside a MARKED pole (PlayerMotorArchitecture); nothing happens in a level without one
         TryDash();
         TryJump();
         TrySlam();
@@ -457,6 +458,10 @@ public partial class PlayerMotor : MonoBehaviour
         {
             // Horizontal control locked; keep falling
             velocity += Vector3.down * (config.gravity * GravityScale * dt);
+        }
+        else if (poleSwinging)
+        {
+            PoleMove(dt);    // STEP 3, THE POLE SWING: round the pole at the speed brought to it, the height held
         }
         else if (grounded && grinding)
         {

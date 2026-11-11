@@ -626,6 +626,49 @@ public class Grind : Beat
     }
 }
 
+/// SWING (STEP 3, 2026-11-10): A CORNER ROUND A LAMP POST. The line turns ninety degrees and a lamp standard stands on
+/// the inside of the corner: HOLD the whip key as you come by it and the whip takes the post, the body swings round it
+/// at the speed it brought (the view turns with it), and letting go sends it down the new leg with a little more. I is
+/// a solid corner to the right (walk it if you like: the post is the faster way round). II turns left and the corner
+/// itself is gone: the swing carries you over where it was, onto a leg a metre down. III is an S, right and then left,
+/// the second corner cut. The circle is the lit line: from the middle of one leg to the middle of the next
+public class Swing : Beat
+{
+    public override string Name => "SWING";
+    public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, v.baseRunSpeed, 10f, 12f);
+    public override string Note(LevelMetricsMath.Values v, int d) => (d <= 1 ? "a corner right round a lamp post" : d == 2 ? "a corner left, and the corner is gone" : "an S: right, then left over a gap") + " · HOLD THE WHIP KEY (E) as you pass the post: swing round · let go facing the new way";
+    const float PoleX = 5.4f, PoleZ = 6.6f, Leg = 12f;   // the post just outside the inside corner: abeam of it at 6.6 m the middle of the leg is 5.4 m away, and a quarter turn on is the middle of the new leg (z = 12)
+
+    /// One corner in the frame `f`, to the right (side +1) or the left (−1); `cut` takes the corner's square of floor away and drops the new leg a metre. Leaves `f` at the new leg's end, turned
+    static void Corner(Frame f, int side, bool cut)
+    {
+        float yN = cut ? -1f : 0f;
+        f.Deck(0f, cut ? 7f : 17f, 0f, HalfW, "SwingLeg"); f.Line(0f, 0.5f, PoleZ, 0f);
+        float x0 = side * HalfW, x1 = side * (HalfW + Leg);
+        f.Mass(Mathf.Min(x0, x1), Mathf.Max(x0, x1), yN - 1f, yN, 7f, 17f, "SwingNewLeg", LevelKit.Floor);
+        f.Body(Mathf.Min(x0, x1), Mathf.Max(x0, x1), yN - 1.05f, 7f, 17f, "SwingNewLegBody");
+        f.Pole(side * PoleX, PoleZ, 0f);
+        if (!cut)
+            for (int k = 0; k < 6; k++)   // the swing's circle, drawn on the floor it crosses
+            {
+                float a0 = k * 15f, a1 = (k + 1) * 15f;
+                f.LineBetween(side * (PoleX - PoleX * BeatMath.Cos(a0)), PoleZ + PoleX * BeatMath.Sin(a0), side * (PoleX - PoleX * BeatMath.Cos(a1)), PoleZ + PoleX * BeatMath.Sin(a1), 0f);
+            }
+        f.LineBetween(side * (PoleX + 0.3f), PoleZ + PoleX, x1 - side * 0.5f, PoleZ + PoleX, yN);
+        var g = f.Sub(x1, yN, PoleZ + PoleX, side * 90f);
+        f.origin = g.origin; f.Turn(side * 90f);
+    }
+
+    public override float Build(Frame f, int d)
+    {
+        float s = EntrySpeed(f.v, d);
+        if (d <= 1) Corner(f, 1, false);
+        else if (d == 2) Corner(f, -1, true);
+        else { Corner(f, 1, false); Corner(f, -1, true); }
+        return s;
+    }
+}
+
 public static class BeatLibrary
 {
     /// The speed a beat expects at difficulty `d`, from a checkpoint named for it ("HIDDEN ROUTE II"): the validator times
@@ -660,7 +703,7 @@ public static class BeatLibrary
     /// Every beat, in the order the gym lays them out (the BREATHER went on 2026-10-29: a long flat straight is speed for nothing; the TRICK DESCENT came on 2026-11-10 when CONTROL lost its hop stones)
     public static readonly List<Beat> All = new List<Beat>
     {
-        new GapJump(), new WallrunChain(), new SlideTunnel(), new RampLaunch(), new Drop(), new TrickDescent(), new Vault(), new Grind(), new Control(),
+        new GapJump(), new WallrunChain(), new SlideTunnel(), new RampLaunch(), new Drop(), new TrickDescent(), new Vault(), new Grind(), new Swing(), new Control(),
         new Fork(), new Skip(), new TechCheck(), new HiddenRoute(), new Turn(),
     };
 }

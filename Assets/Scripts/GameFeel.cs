@@ -359,6 +359,10 @@ public class GameFeel : MonoBehaviour
                 if (detail != null && detail.StartsWith("OFF")) { Kick(3f); Play("whoosh_soft", 0.45f); Play("metal_medium", 0.25f, 1.2f); }
                 else { Kick(3f); Burst(0.2f); Play("metal", 0.4f, 1.15f); Play("slide", 0.45f, 0.9f); Play("belt", 0.25f); }
                 break;
+            case MoveType.PoleSwing:   // STEP 3: the whip takes the post (leather, the brass), and the body let go into the new line
+                if (detail != null && detail.StartsWith("OFF")) { Kick(4f); Burst(0.25f); Play("whoosh_hard", 0.5f); Play("leather", 0.3f); }
+                else { Kick(3f); Play("leather", 0.4f, 1.1f); Play("belt", 0.35f); Play("metal", 0.25f, 0.9f); }
+                break;
             // --- high effort: hard swish, sometimes a thump ---
             case MoveType.Dash:
                 if (detail != null && detail.StartsWith("REDIRECT")) { Kick(2f); Play("whoosh_hard", 0.45f, 1.1f); }   // a redirect at speed (flat, UP or DOWN): no burst, you kept what you had

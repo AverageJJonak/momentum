@@ -113,6 +113,7 @@ public class PlayerLook : MonoBehaviour
             Yaw = Mathf.Repeat(Yaw + delta.x, 360f);
             Pitch = Mathf.Clamp(Pitch - delta.y, -89f, 89f);
         }
+        if (motor != null && motor.PoleTurnRate != 0f) Yaw = Mathf.Repeat(Yaw + motor.PoleTurnRate * Time.deltaTime, 360f);   // STEP 3, THE POLE SWING: the view turns with the body round the pole; the mouse adds on top
         if (Time.unscaledTime < steerUntil && cam != null) ApplySteer(); // after the mouse: the pull closes what the mouse left
     }
 

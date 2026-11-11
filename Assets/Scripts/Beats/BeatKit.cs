@@ -255,6 +255,29 @@ public class Frame
         Post(x, z, y - 0.3f, 0.4f);
     }
 
+    /// A POLE to swing round (STEP 3, 2026-11-10): a lamp standard at (x, z) beside the floor at `y`, on a post of its
+    /// own down to the ground. It is a mark and a picture, with nothing solid above the floor: a body that cuts the corner
+    /// goes through where it stands and is never stopped by it, and the validator (which reads boxes) sees no floor and
+    /// no wall. The lamp is the modelled piece when there is one (DecoKit); until then a brass standard under a lit
+    /// globe, so the thing to swing round is always there to see
+    public GameObject Pole(float x, float z, float y, float height = 4.5f)
+    {
+        var go = new GameObject("SwingPole");
+        go.transform.SetParent(root);
+        go.transform.position = P(x, y + height * 0.5f, z);
+        MoveSurface.Mark(go, MoveSurface.Kind.Swing).halfHeight = height * 0.5f;
+        Post(x, z, y - 0.3f, 0.4f);
+        if (DecoKit.Place(root, "lamp_4m", P(x, y - 0.3f, z), Rot, new Vector3(0.25f, 4f, 0.25f), null, true) == null)
+        {
+            LevelKit.Prim(root, P(x, y - 0.1f, z), new Vector3(0.5f, 0.4f, 0.5f), LevelKit.Dark, "PoleFoot", PrimitiveType.Cube, Rot);
+            LevelKit.Prim(root, P(x, y + height * 0.5f, z), new Vector3(0.2f, height, 0.2f), LevelKit.Brass, "PoleShaft", PrimitiveType.Cube, Rot);
+            LevelKit.Prim(root, P(x, y + height - 0.06f, z), new Vector3(0.38f, 0.12f, 0.38f), LevelKit.Brass, "PoleCollar", PrimitiveType.Cube, Rot);
+            LevelKit.Prim(root, P(x, y + height + 0.27f, z), Vector3.one * 0.55f, LevelKit.LampCream, "PoleGlobe", PrimitiveType.Sphere);
+        }
+        Lamp(x, y + height + 0.3f, z, 18f, 1.6f);
+        return go;
+    }
+
     /// A BEAM: a floor `wide` across, from (x0, z0) to (x1, z1) along the frame's x or z (the other equal), its top at y;
     /// it ends exactly at its ends, so a pad it meets is touched and not overlapped. A walkway: posts under its ends
     public GameObject Beam(float x0, float z0, float x1, float z1, float y, float wide, string name = "ControlBeam")

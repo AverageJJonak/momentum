@@ -44,4 +44,22 @@ public partial class MovementConfig
     public float grindJumpMultiplier = 1.05f;
     [Tooltip("The rail must have been ridden this long for the jump off it to pay (a touch and a hop is a hop)")]
     public float grindJumpMinTime = 0.3f;
+
+    [Header("POLE SWING (STEP 3) · hold the whip key beside a marked pole")]
+    [Tooltip("Off: a marked pole is a post like any other and the whip key is only the whip")]
+    public bool poleSwingEnabled = true;
+    [Tooltip("How near the pole the whip key takes hold, metres (the gym's posts stand 5.4 m from the middle of the line)")]
+    public float poleReach = 5.5f;
+    [Tooltip("The reach grows by this many seconds of your speed (at 20 m/s and 0.1 s: two metres more), so a fast pass has the same time to press")]
+    public float poleReachSeconds = 0.1f;
+    [Tooltip("The least speed for a swing")]
+    public float poleMinSpeed = 5f;
+    [Tooltip("The tightest circle a swing is held to, metres from the pole")]
+    public float poleRadius = 1f;
+    [Tooltip("A swing lets go by itself after this many degrees")]
+    public float poleMaxTurn = 300f;
+    [Tooltip("A swing must have turned this many degrees for the release to pay")]
+    public float poleMinTurn = 45f;
+    [Tooltip("Letting go multiplies the speed held through the swing (the gain above 1 scales with freshness)")]
+    public float poleReleaseMultiplier = 1.06f;
 }

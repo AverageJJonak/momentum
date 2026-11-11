@@ -89,8 +89,9 @@ public class GrappleAbility : MonoBehaviour
     {
         bool locked = PauseMenu.IsPaused;
         bool mid = TrickSystem.Instance != null && TrickSystem.Instance.Active;   // mid-flip the hands are tucked: the whip waits for the landing
-        if (!locked && !mid && Keybinds.Down(GameAction.Grapple)) pressed = true;
-        held = !locked && !mid && Keybinds.Held(GameAction.Grapple);
+        bool poles = motor != null && motor.PoleHasWhipKey;   // STEP 3, THE POLE SWING: beside a marked pole the key takes hold of the pole, and the whip stays coiled
+        if (!locked && !mid && !poles && Keybinds.Down(GameAction.Grapple)) pressed = true;
+        held = !locked && !mid && !poles && Keybinds.Held(GameAction.Grapple);
 
         bool show = IsActive;
         daggerVisual.SetActive(show);
