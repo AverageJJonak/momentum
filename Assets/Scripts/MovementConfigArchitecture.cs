@@ -46,8 +46,8 @@ public partial class MovementConfig
     public float grindJumpMinTime = 0.3f;
 
     [Header("POLE SWING (STEP 3) · hold the whip key beside a marked pole")]
-    [Tooltip("Off: a marked pole is a post like any other and the whip key is only the whip")]
-    public bool poleSwingEnabled = true;
+    [Tooltip("Off: a marked pole is a post like any other and the whip key is only the whip. OFF since 2026-11-11: played, and the whip's own swing was the better one (a fixed circle at a fixed speed felt predetermined)")]
+    public bool poleSwingEnabled = false;
     [Tooltip("How near the pole the whip key takes hold, metres (the gym's posts stand 5.4 m from the middle of the line)")]
     public float poleReach = 5.5f;
     [Tooltip("The reach grows by this many seconds of your speed (at 20 m/s and 0.1 s: two metres more), so a fast pass has the same time to press")]
