@@ -29,6 +29,7 @@ public static class BeatGymBuilder
         LevelKit.SetZone(Zone.Utopia);
         DecoKit.BeginBuild();
         MoveSurface.Forget();
+        GymStations.Begin();
         LevelSections.Begin(7, BaseY);
         var root = new GameObject("BeatGym").transform;
         var v = LevelMetrics.Read(config);
@@ -39,7 +40,7 @@ public static class BeatGymBuilder
         // the start: a floor, the first checkpoint, the gym's sign
         f.Deck(0f, 12f, 0f, HalfW + 2f, "Start");
         f.Checkpoint("THE GYM", 2f, 0f, HalfW + 2f);
-        f.Sign(0f, 4.5f, 8f, "THE BEAT GYM\nevery beat three times, a reset pad before each, a bend after\nTRICKS  W front, S back (a GAINER at speed), A or D side, nothing spin, W+A/D FULL TWIST, S+A/D CORK, hold JUMP for a DOUBLE\nLEDGES  jump as you reach one: VAULT · BRASS RAILS  they carry you: GRIND · LAMP POSTS  hold E beside one: SWING\nF9 stop · F10 snag · F11 flow", 0.9f);
+        f.Sign(0f, 4.5f, 8f, "THE BEAT GYM\nevery beat three times, a reset pad before each, a bend after\nTRICKS  W front, S back (a GAINER at speed), A or D side, nothing spin, W+A/D FULL TWIST, S+A/D CORK, hold JUMP for a DOUBLE\nLEDGES  jump as you reach one: VAULT · BRASS RAILS  they carry you: GRIND · LAMP POSTS  hold E beside one: SWING\nTAB  every station, jump to any · R  back to the start of the station you are in · F9 stop · F10 snag · F11 flow", 0.9f);
         f.Lamp(0f, 6f, 7f); f.LampPost(HalfW + 2.4f, 0f, 7f);
         Vector3 spawn = f.P(0f, 0f, 3f);
         f.Advance(12f, 0f);
@@ -61,6 +62,7 @@ public static class BeatGymBuilder
         CityVista.Override = foot;
         CityVista.Suppressed = true;   // a test rig, not a place: no skyline round two kilometres of row (it would be thousands of blocks)
         if (DecoKit.Enabled) Debug.Log("BeatGym " + DecoKit.Report());
+        root.gameObject.AddComponent<BeatGymTools>();   // TAB: the station menu; R: back to the start of the station under the feet
         return spawn;
     }
 
@@ -69,6 +71,7 @@ public static class BeatGymBuilder
     {
         float s = beat.EntrySpeed(f.v, d);
         string title = beat.Name + " " + BeatMath.Roman(d);
+        int first = f.root.childCount; Vector3 padAt = f.origin; Quaternion padRot = f.Rot;   // the test tools (BeatGymTools): what this station is made of, measured from its own pad
         f.Deck(0f, 8f, 0f, PadHalfW, "ResetDeck"); f.Line(0f, 0.5f, 7.5f, 0f);   // five metres wide: the bend's wide floor narrows to the pad, and a hop off the bend's side finds no deck
         f.Checkpoint(title, 1.5f, 0f, PadHalfW);
         bool slope = s > f.v.baseRunSpeed + 0.5f;
@@ -83,7 +86,9 @@ public static class BeatGymBuilder
             f.Advance(dz, -drop);
         }
         beat.Build(f, d);
+        int beatEnd = f.root.childCount;
         Bend(f, BendSide(f));
+        GymStations.Add(title, beat.Name, d, f.root, first, beatEnd, f.root.childCount, padAt, padRot);
     }
 
     /// Which way the next bend turns: the row is a staircase of legs heading 0° (the start's way) and 270° (left of it), so

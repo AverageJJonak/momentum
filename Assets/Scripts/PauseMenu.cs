@@ -95,7 +95,7 @@ public class PauseMenu : MonoBehaviour
             return;
         }
 
-        if (kb.escapeKey.wasPressedThisFrame)
+        if (kb.escapeKey.wasPressedThisFrame && BeatGymTools.EscapeFrame != Time.frameCount)   // (an ESC that closed the gym's station menu this frame was the menu's)
         {
             if (IsPaused) Resume();
             else Pause();

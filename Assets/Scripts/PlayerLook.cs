@@ -69,6 +69,16 @@ public class PlayerLook : MonoBehaviour
 
     public void ClearSteer() => steerUntil = float.NegativeInfinity;
 
+    /// The view turned to face along `direction` at once, level (a teleport: the gym's menu). The mouse has it from the next frame
+    public void Face(Vector3 direction)
+    {
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 1e-4f) return;
+        Yaw = Mathf.Repeat(Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg, 360f);
+        Pitch = 0f;
+        steerUntil = float.NegativeInfinity;
+    }
+
     void ApplySteer()
     {
         Vector3 dir = steerPoint - cam.transform.position;

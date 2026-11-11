@@ -168,6 +168,23 @@ public class CourseFlow : MonoBehaviour
         if (idx > 0) SetStamp(s.name, Paper, 0.9f);
     }
 
+    /// Makes the checkpoint called `name` the respawn now, wherever the body is (the Beat Gym's tools: the station under
+    /// the feet, a station picked from its menu). False when no checkpoint has that name
+    public bool Take(string name)
+    {
+        for (int i = 0; i < segments.Count; i++)
+        {
+            if (segments[i].name != name) continue;
+            current = reached = i;
+            if (segments[i].volume) lastVolume = i;
+            enteredAt = Time.time;
+            GameBootstrap.Checkpoint = segments[i].spawn;
+            GameBootstrap.CheckpointForward = segments[i].forward;
+            return true;
+        }
+        return false;
+    }
+
     /// The respawn-moving rule: the bootstrap has just stood you at the checkpoint; you leave it at run speed along its
     /// forward, the view pulled the same way
     void OnRespawned()
