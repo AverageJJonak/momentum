@@ -169,48 +169,145 @@ public class Drop : Beat
     }
 }
 
-/// FORK: the line splits round a divider — the SAFE side a colonnade (a whole floor under a lintel every eight metres:
-/// slow for a hopper too) that ends in a slope down, the RISKY side a BAR to slide under and a SLIDE JUMP (2026-11-04;
-/// the user: "every jump sequence mixes in at least one other move") to the first of one to three hop stones, each a
-/// metre lower, three metres deep, spaced for the speed the slide jump leaves: that speed and not much more — and they
-/// meet again under a portal
+/// FORK (rebuilt 2026-11-11 as THE JUNCTION; the user: "way too basic: two paths, and on the hard one I can just run
+/// through … rebuild it as a bigger junction": three routes on three heights that split and rejoin, each with its own
+/// moves, the hard ones needing real execution, drops between them, a hidden way up, every line in sight of the
+/// others, and a fall from a high line a landing on a lower one, never a reset). A street between two buildings:
+///   STRAIGHT ON, LOW   the lit line: down three steps into the street, an ARCADE (low roofs five metres deep: slide
+///                      them; an arch between, so a hop chain cannot grow) and a LEDGE across it to vault. Anyone gets
+///                      through, slowly: the street runs the whole length and nothing in it pays
+///   LEFT, MIDDLE       the left building's top: two / three / four FACADES that interlock (the WALLRUN CHAIN's sums)
+///                      with no floor between the launch and the landing: run one, jump across, run the next. The
+///                      landing stands 3.4 m over the street and ends in a slope that turns the height into speed
+///   RIGHT, HIGH        the right building's: one / two / three brass RAILS that carry you UP (a rail is the one thing
+///                      that climbs for nothing), and off the end of the last a gap no jump crosses: leap, throw THE
+///                      WHIP at the lit arch over it, swing, let go, and come down on a roof a metre HIGHER than you
+///                      left, seven metres over the street, pitched twenty degrees: the longest slide in the junction.
+///                      (Which line is the high one was the sums' choice: the whip reels in while it is held and throws
+///                      the body further and faster than anything else in the game, so the line that uses it is the
+///                      fastest whatever else stands on it; the wall runs keep speed, they do not make it.)
+/// Under the facades, and under the rails and the swing, lies a COURT at the street's level, open to the street: a miss
+/// is a landing there, the building's next block is a wall ahead, and the way on is the street beside you: slower,
+/// never a reset. THE WAY UP nobody is shown: the street's ledge is 1.6 m up, and from on it the middle line's landing
+/// beside it is 1.8 m more with a vault's mark on its cornice: vault, veer left, vault again, and that line's slope is
+/// yours. Names matter to the validator (LevelValidator: THE FORKS): ForkHigh…, ForkMid… and ForkLow… are the three
+/// lines' own floors (a rail is the high line's), ForkMouth and ForkRejoin are everyone's, ForkCourt is the net under the
+/// high lines (never part of a line: only checked, that a miss can go on from it); it walks each line alone,
+/// times it executed well, and says so if a harder line is not the faster one, if a hard line can be run through, or
+/// if a miss is a reset
 public class Fork : Beat
 {
     public override string Name => "FORK";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => 12f;
-    public override string Note(LevelMetricsMath.Values v, int d) => "left: safe and slow, a colonnade · right: SLIDE the bar, slide-jump " + F1(BeatMath.SlideJumpReach(v, 12f, -1f) * 0.8f) + " m to the first stone, hop " + (int)Pick(d, 0, 1, 2) + " more";
+    public override string Note(LevelMetricsMath.Values v, int d) => "THREE WAYS · RIGHT, high: the RAIL" + (d > 1 ? "S carry" : " carries") + " you up, leap off the end, WHIP the arch (E), let go · LEFT, middle: WALL RUN the " + Walls(d) + " facades · STRAIGHT ON, low: the street, slide the arcade, vault the ledge · a miss lands you in the street";
+
+    const float Edge = 3.65f, Outer = 13f, StripX = (Edge + Outer) * 0.5f, StripHalf = (Outer - Edge) * 0.5f;   // the street is 3.65 m each side of the line; a building each side of it, out to 13 m: every landing on them is over nine metres wide
+    const float Mouth = 12f, Tongue = 6f, LaneM = 2.55f, Rise = 3.4f, LandM = 10f, DropDeg = 28f;
+    const float LedgeUp = 1.6f, RoofDeep = 5f, RoofClear = 1.25f, ArchClear = 2.2f;
+    const float RailUp = 2f, RailAir = 6f, RailDown = 0.5f, AnchorAhead = 12f, AnchorUp = 10f, LandUp = 1f, RoofDeg = 20f, RejoinLen = 14f;
+    static int Walls(int d) => (int)Pick(d, 2, 3, 4);
+    static float Sole(int d) => Pick(d, 4f, 6f, 8f);
+    static float Overlap(int d) => Pick(d, 7f, 7f, 6f);
+    static float RailLen(int d) => Pick(d, 16f, 14f, 12f);
+
+    /// The gap the whip crosses off the last rail, arriving at `arrive`, to a roof a metre up: more than a second jump makes at that speed, three quarters of the swing's reach, never over four fifths of it
+    static float SwingGap(LevelMetricsMath.Values v, float arrive)
+    {
+        float reach = BeatMath.SwingReach(v, arrive, AnchorAhead, AnchorUp, -LandUp);
+        return Mathf.Min(0.8f * reach, Mathf.Max(1.1f * BeatMath.DoubleReach(v, arrive, LandUp), 0.75f * reach));
+    }
+
+    /// A pitched slab thick enough that nothing is hollow under its high end (a slope's body stands only as tall as its low end)
+    static float Solid(float rise, float deg) => (rise + 1.1f) / BeatMath.Cos(deg) + 0.1f;
+
+    /// The street's furniture between `a` and `b`: a low roof to slide, an arch, a roof, an arch; three metres clear at each end
+    static void Arcade(Frame f, float a, float b, float y)
+    {
+        bool roof = true;
+        for (float c = a + 3f; c + (roof ? RoofDeep : 0.9f) <= b - 3f; roof = !roof)
+        {
+            if (!roof) { f.Bar(c + 0.45f, y, Edge, ArchClear); c += 5.5f; continue; }
+            f.Mass(-Edge - 0.1f, Edge + 0.1f, y + RoofClear, y + RoofClear + 1f, c, c + RoofDeep, "Lintel");
+            for (int sx = -1; sx <= 1; sx += 2)
+                for (int k = 0; k < 2; k++)
+                {
+                    float px = sx * (Edge + 0.45f), pz = k == 0 ? c + 0.45f : c + RoofDeep - 0.45f;
+                    f.Mass(px - 0.35f, px + 0.35f, f.Structural ? f.groundY : y - 1f, y + RoofClear + 1f, pz - 0.45f, pz + 0.45f, "Post");
+                }
+            c += RoofDeep + 5.5f;
+        }
+    }
+
     public override float Build(Frame f, int d)
     {
-        int n = (int)Pick(d, 1, 2, 3);
-        const float first = 4f, stone = 3f, lane = 2.75f, off = 4.25f, s = 12f;
-        // the first gap is 80% of the slide jump's reach at 12 m/s; the hops after it are sized for the speed between the lazy
-        // and the perfect slide jump's, so the lazy one lands a little short of each stone's middle and the perfect one a little past it
-        float gap1 = BeatMath.SlideJumpReach(f.v, s, -1f) * 0.8f;
-        float hop = s * 0.5f * (LevelMetricsMath.SlideJumpMultiplier(f.v, s, false) + LevelMetricsMath.SlideJumpMultiplier(f.v, s, true));
-        float gap = BeatMath.Gap(f.v, hop, -1f, 0.8f);
-        float len = first + gap1 + n * (stone + gap);   // the last gap lands on the rejoin
-        f.Deck(0f, 4f, 0f, HalfW, "ForkMouth");
-        f.Mass(-1.5f, 1.5f, f.Structural ? f.groundY : -1f, f.Structural ? f.facadeHeight : 4f, 4f, 4f + len, "Divider");   // a building between the two ways, too tall for a run to top
-        // the risky right side: a floor, then stones, each a metre lower, the rejoin a metre lower still
-        float z = 4f, y = 0f;
-        f.Deck(z, z + first, y, lane, "RiskyFloor", off);
-        f.Bar(z + first - 1.75f, y, lane - 0.2f, 1.25f, false, true, off);   // the bar off the divider: a slide passes under, a run or a hop into it stops (the slide is this side's move)
-        z += first;
+        var v = f.v;
+        float s = EntrySpeed(v, d);
+        int n = Walls(d);
+        float yML = -1f - 0.4f * n, S = yML - Rise;   // the middle line's landing (the chain's own drop) and the street, 3.4 m under it
+        var mid = f.Sub(-StripX, 0f, 0f, 0f); var hi = f.Sub(StripX, 0f, 0f, 0f);   // the two buildings, each built about its own middle
+
+        // THE MOUTH: one floor, then a tongue to each line (one floor to the feet; the validator reads each line from its own)
+        f.Deck(0f, Mouth - Tongue, 0f, Outer, "ForkMouth");
+        mid.Deck(Mouth - Tongue, Mouth, 0f, StripHalf, "ForkMidLaunch");
+        f.Deck(Mouth - Tongue, Mouth, 0f, Edge, "ForkLowMouth");
+        hi.Deck(Mouth - Tongue, Mouth, 0f, StripHalf, "ForkHighLaunch");
+        f.Line(0f, 0.5f, Mouth, 0f);
+        f.LineBetween(0f, 1f, -StripX, Mouth - Tongue, 0f); f.LineBetween(-StripX, Mouth - Tongue, -StripX, Mouth, 0f);
+        f.LineBetween(0f, 1f, StripX, Mouth - Tongue, 0f); f.LineBetween(StripX, Mouth - Tongue, StripX, Mouth, 0f);
+        f.Sign(-StripX, 4.6f, Mouth - 1f, "MIDDLE\nwall runs", 0.6f); f.Sign(0f, 4.6f, Mouth - 1f, "LOW\nthe street", 0.6f); f.Sign(StripX, 4.6f, Mouth - 1f, "HIGH\nrails, the whip", 0.6f);
+
+        // THE MIDDLE LINE: the wall-run chain's facades, a court at the street's level under them, the landing, the slope down
+        float sole = Sole(d), overlap = Overlap(d), step = sole + overlap, z0 = Mouth - 6f, zEnd = 0f;
         for (int i = 0; i < n; i++)
         {
-            z += i == 0 ? gap1 : gap; y -= 1f;
-            f.Deck(z, z + stone, y, lane, "RiskyStone", off);
-            z += stone;
+            float side = i % 2 == 0 ? 1f : -1f;
+            float a = i == 0 ? 4f : 4f + sole + (i - 1) * step;
+            zEnd = a + (i == 0 ? sole + overlap : sole + 2f * overlap);
+            mid.Wall(side * (LaneM + 0.6f), z0 + a, z0 + zEnd, 0.3f - i * 0.4f, 4f);
         }
-        y -= 1f;
-        // the safe left side: whole, flat, under lintels, then down a slope to the same height
-        float slopeLen = 10f;
-        f.Deck(4f, 4f + len - slopeLen, 0f, lane, "SafeFloor", -off);
-        for (float pz = 8f; pz < 4f + len - slopeLen - 2f; pz += 8f) f.Portal(pz, 0f, lane - 0.2f, 2.2f, 5.5f, true, false, -off);
-        f.Slope(4f + len - slopeLen, 0f, 4f + len, y, lane, "SafeSlope", -off);
-        f.Deck(4f + len, 4f + len + 6f, y, HalfW, "Rejoin"); f.Line(0f, 4.5f + len, 9.5f + len, y);
-        f.Advance(4f + len + 6f, y);
-        return 12f;
+        float zML = z0 + zEnd - 2f, dzM = Rise / Mathf.Tan(DropDeg * Mathf.Deg2Rad), zMR = zML + LandM + dzM;
+        mid.Deck(Mouth, zML, S, StripHalf, "ForkCourt");
+        MoveSurface.Mark(mid.Deck(zML, zML + LandM, yML, StripHalf, "ForkMidLanding"), MoveSurface.Kind.Vault);   // its cornice over the street is the second step of the way up
+        mid.Line(0f, zML + 0.5f, zML + LandM, yML);
+        mid.Slope(zML + LandM, yML, zMR, S, StripHalf, "ForkMidDrop", 0f, Solid(Rise, DropDeg)); mid.LineRun(0f, zML + LandM, yML, zMR, S);
+        mid.Lamp(0f, yML + 6f, zML + 3f);
+
+        // THE HIGH LINE: rails that climb off the mouth's edge, the leap off the last one, the whip's arch, the long roof it lands on
+        int rails = Mathf.Clamp(d, 1, 3);
+        float railLen = RailLen(d), run = railLen * BeatMath.Cos(RailUp), rise = railLen * BeatMath.Sin(RailUp);
+        float z = Mouth, y = -0.02f, sp = s;
+        for (int i = 0; i < rails; i++)
+        {
+            if (i > 0) { z += RailAir; y -= RailDown; sp *= v.grindJumpMultiplier; }
+            hi.Rail(d >= 3 && i == 1 ? 2f : 0f, z, y, z + run, y + rise);
+            z += run; y += rise;
+            sp = BeatMath.RailGain(v, sp, -RailUp, railLen);
+        }
+        float gap = SwingGap(v, sp * v.grindJumpMultiplier), zHL = z + gap;
+        hi.Anchor(z + AnchorAhead + 1.5f, y + AnchorUp, StripHalf, 0f, false, true);   // an arm off a tower on the outside: nothing of it stands in the street
+        float yHL = y + LandUp, lenHL = (yHL - S) / BeatMath.Sin(RoofDeg), dzHL = lenHL * BeatMath.Cos(RoofDeg);
+        hi.Deck(Mouth, zHL, S, StripHalf, "ForkCourt");
+        hi.Slope(zHL, yHL, zHL + dzHL, S, StripHalf, "ForkHighLanding", 0f, Solid(yHL - S, RoofDeg)); hi.LineRun(0f, zHL, yHL, zHL + dzHL, S);
+        hi.Lamp(0f, yHL + 6f, zHL + 2f);
+
+        // THE LOW LINE: three steps down into the street, the arcade, the ledge beside the middle line's landing
+        float zS = Mouth + 8f, zG0 = zML + 2f, zG1 = zML + LandM;
+        float zRejoin = Mathf.Ceil(Mathf.Max(zHL + dzHL, Mathf.Max(zMR + 6f, zG1 + 14f)));
+        f.Deck(Mouth, Mouth + 4f, S / 3f, Edge, "ForkLowStep"); f.Line(0f, Mouth + 0.5f, Mouth + 3.5f, S / 3f);
+        f.Deck(Mouth + 4f, zS, 2f * S / 3f, Edge, "ForkLowStep"); f.Line(0f, Mouth + 4.5f, zS - 0.5f, 2f * S / 3f);
+        f.Deck(zS, zG0, S, Edge, "ForkLowStreet"); f.Line(0f, zS + 0.5f, zG0, S);
+        MoveSurface.Mark(f.Deck(zG0, zG1, S + LedgeUp, Edge, "ForkLowLedge"), MoveSurface.Kind.Vault); f.Line(0f, zG0, zG1, S + LedgeUp);
+        f.Deck(zG1, zRejoin, S, Edge, "ForkLowStreet"); f.Line(0f, zG1 + 0.5f, zRejoin, S);
+        Arcade(f, zS, zG0, S); Arcade(f, zG1, zRejoin, S);
+        f.Lamp(0f, S + LedgeUp + 5f, zG0 + 2f);
+
+        // the run-outs at the street's level (where the slopes' speed is spent), and the floor where the three are one again
+        if (zRejoin - zMR > 0.5f) mid.Deck(zMR, zRejoin, S, StripHalf, "ForkMidRunout");
+        if (zRejoin - (zHL + dzHL) > 0.5f) hi.Deck(zHL + dzHL, zRejoin, S, StripHalf, "ForkHighRunout");
+        f.Deck(zRejoin, zRejoin + RejoinLen, S, Outer, "ForkRejoin"); f.Line(0f, zRejoin + 0.5f, zRejoin + RejoinLen - 0.5f, S);
+        f.Take(mid); f.Take(hi);
+        f.Advance(zRejoin + RejoinLen, S);
+        return s;
     }
 }
 
