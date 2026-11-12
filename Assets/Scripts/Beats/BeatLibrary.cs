@@ -637,46 +637,38 @@ public class Grind : Beat
     }
 }
 
-/// SWING (STEP 3, 2026-11-10): A CORNER ROUND A LAMP POST. The line turns ninety degrees and a lamp standard stands on
-/// the inside of the corner: HOLD the whip key as you come by it and the whip takes the post, the body swings round it
-/// at the speed it brought (the view turns with it), and letting go sends it down the new leg with a little more. I is
-/// a solid corner to the right (walk it if you like: the post is the faster way round). II turns left and the corner
-/// itself is gone: the swing carries you over where it was, onto a leg a metre down. III is an S, right and then left,
-/// the second corner cut. The circle is the lit line: from the middle of one leg to the middle of the next
+/// SWING (rebuilt 2026-11-11; the user, having played the pole swing: "I preferred our old version of the swing, very
+/// spiderman like, a lot more interactive and fun, this new predetermined one … is unnatural"). THE WHIP is the swing:
+/// a gap no jump crosses and a lit ARCH high over it. Run at the edge, aim the whip at the arch, HOLD: the whip takes
+/// it, reels you in and the swing carries you through; LET GO on the way up and the momentum is yours. Where you aim,
+/// how long you hold and when you let go are yours (LevelMetricsMath.WhipSwing replays the whip's own rules, and the
+/// gaps are a share of what its best release reaches). I is a short gap with the arch near its far side: hold on too
+/// long and you still come down on the roof. II is wider and lands two metres lower; III wider again, four metres
+/// lower, its arch higher. Every landing is a long pitched roof: come down anywhere on it and slide. The whip costs
+/// two pips of three, so it is one swing a station
 public class Swing : Beat
 {
     public override string Name => "SWING";
     public override float EntrySpeed(LevelMetricsMath.Values v, int d) => Pick(d, v.baseRunSpeed, 10f, 12f);
-    public override string Note(LevelMetricsMath.Values v, int d) => (d <= 1 ? "a corner right round a lamp post" : d == 2 ? "a corner left, and the corner is gone" : "an S: right, then left over a gap") + " · HOLD THE WHIP KEY (E) as you pass the post: swing round · let go facing the new way";
-    const float PoleX = 5.4f, PoleZ = 6.6f, Leg = 12f;   // the post just outside the inside corner: abeam of it at 6.6 m the middle of the leg is 5.4 m away, and a quarter turn on is the middle of the new leg (z = 12)
-
-    /// One corner in the frame `f`, to the right (side +1) or the left (−1); `cut` takes the corner's square of floor away and drops the new leg a metre. Leaves `f` at the new leg's end, turned
-    static void Corner(Frame f, int side, bool cut)
-    {
-        float yN = cut ? -1f : 0f;
-        f.Deck(0f, cut ? 7f : 17f, 0f, HalfW, "SwingLeg"); f.Line(0f, 0.5f, PoleZ, 0f);
-        float x0 = side * HalfW, x1 = side * (HalfW + Leg);
-        f.Mass(Mathf.Min(x0, x1), Mathf.Max(x0, x1), yN - 1f, yN, 7f, 17f, "SwingNewLeg", LevelKit.Floor);
-        f.Body(Mathf.Min(x0, x1), Mathf.Max(x0, x1), yN - 1.05f, 7f, 17f, "SwingNewLegBody");
-        f.Pole(side * PoleX, PoleZ, yN, 4.5f - yN);   // from the new leg's level (a metre down where the corner is cut: its post is never a kerb beside that leg), its lamp at the same height either way
-        if (!cut)
-            for (int k = 0; k < 6; k++)   // the swing's circle, drawn on the floor it crosses
-            {
-                float a0 = k * 15f, a1 = (k + 1) * 15f;
-                f.LineBetween(side * (PoleX - PoleX * BeatMath.Cos(a0)), PoleZ + PoleX * BeatMath.Sin(a0), side * (PoleX - PoleX * BeatMath.Cos(a1)), PoleZ + PoleX * BeatMath.Sin(a1), 0f);
-            }
-        f.LineBetween(side * (PoleX + 0.3f), PoleZ + PoleX, x1 - side * 0.5f, PoleZ + PoleX, yN);
-        var g = f.Sub(x1, yN, PoleZ + PoleX, side * 90f);
-        f.origin = g.origin; f.Turn(side * 90f);
-    }
-
+    static float Ahead(int d) => Pick(d, 9f, 12f, 14f);
+    static float Up(int d) => Pick(d, 9f, 10f, 12f);
+    static float Fall(int d) => Pick(d, 0f, 2f, 4f);
+    /// I: the roof begins five metres past the arch's near edge, under where a swing held too long hangs. II and III: three quarters and four fifths of the best release's reach
+    static float Gap(LevelMetricsMath.Values v, int d, float s) => d <= 1 ? Ahead(d) + 5f : BeatMath.SwingReach(v, s, Ahead(d), Up(d), Fall(d)) * Pick(d, 0.7f, 0.75f, 0.8f);
+    public override string Note(LevelMetricsMath.Values v, int d) => "a gap of " + F0(Gap(v, d, EntrySpeed(v, d))) + " m: no jump crosses it · run at the edge, AIM THE WHIP (E) at the lit arch, HOLD to swing, LET GO on the way up" + (d > 1 ? " · the roof is " + F0(Fall(d)) + " m lower" : "");
     public override float Build(Frame f, int d)
     {
-        float s = EntrySpeed(f.v, d);
-        if (d <= 1) Corner(f, 1, false);
-        else if (d == 2) Corner(f, -1, true);
-        else { Corner(f, 1, false); Corner(f, -1, true); }
-        return s;
+        float s = EntrySpeed(f.v, d), gap = Gap(f.v, d, s), fall = Fall(d);
+        const float landDeg = 8f, launch = 8f;
+        float roof = Pick(d, 22f, 26f, 30f), dz = roof * BeatMath.Cos(landDeg), drop = roof * BeatMath.Sin(landDeg);
+        f.Deck(0f, launch, 0f, HalfW, "SwingLaunch"); f.Line(0f, 0.5f, launch - 0.5f, 0f);
+        f.Anchor(launch + Ahead(d) + 1.5f, Up(d), HalfW);
+        float zL = launch + gap;
+        f.Slope(zL, -fall, zL + dz, -fall - drop, HalfW, "SwingLandingSlope"); f.LineRun(0f, zL, -fall, zL + dz, -fall - drop);
+        f.Deck(zL + dz, zL + dz + 4f, -fall - drop, HalfW, "SwingLanding"); f.Line(0f, zL + dz + 0.5f, zL + dz + 3.5f, -fall - drop);
+        f.Lamp(0f, -fall + 6f, zL + 2f);
+        f.Advance(zL + dz + 4f, -fall - drop);
+        return LevelMetricsMath.SwingOver(f.v, s, Ahead(d), Up(d), -fall, gap + 0.5f, gap + roof).h;
     }
 }
 

@@ -40,7 +40,7 @@ public static class BeatGymBuilder
         // the start: a floor, the first checkpoint, the gym's sign
         f.Deck(0f, 12f, 0f, HalfW + 2f, "Start");
         f.Checkpoint("THE GYM", 2f, 0f, HalfW + 2f);
-        f.Sign(0f, 4.5f, 8f, "THE BEAT GYM\nevery beat three times, a reset pad before each, a bend after\nTRICKS  W front, S back (a GAINER at speed), A or D side, nothing spin, W+A/D FULL TWIST, S+A/D CORK, hold JUMP for a DOUBLE\nLEDGES  jump as you reach one: VAULT · BRASS RAILS  they carry you: GRIND · LAMP POSTS  hold E beside one: SWING\nTAB  every station, jump to any · R  back to the start of the station you are in · F9 stop · F10 snag · F11 flow", 0.9f);
+        f.Sign(0f, 4.5f, 8f, "THE BEAT GYM\nevery beat three times, a reset pad before each, a bend after\nTRICKS  W front, S back (a GAINER at speed), A or D side, nothing spin, W+A/D FULL TWIST, S+A/D CORK, hold JUMP for a DOUBLE\nLEDGES  jump as you reach one: VAULT · BRASS RAILS  they carry you: GRIND · THE WHIP (E)  aim at a lit arch, HOLD to swing, let go to fly\nTAB  every station, jump to any · R  back to the start of the station you are in · F9 stop · F10 snag · F11 flow", 0.9f);
         f.Lamp(0f, 6f, 7f); f.LampPost(HalfW + 2.4f, 0f, 7f);
         Vector3 spawn = f.P(0f, 0f, 3f);
         f.Advance(12f, 0f);

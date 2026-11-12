@@ -278,6 +278,32 @@ public class Frame
         return go;
     }
 
+    /// AN ARCH TO WHIP (2026-11-11; the user, having played the pole swing: "I preferred our old version of the swing,
+    /// very spiderman like"): a deep beam across the line high over a gap, its UNDERSIDE `y` over the frame's floor and
+    /// its middle at `z`, four metres tall and three deep so the thing to aim at is big, on a tower each side down to the
+    /// ground (one side only where the other would stand in another line's way: a marquee's arm). The whip takes any
+    /// surface; this is the one put where a swing wants it, with a brass bar and a lamp under it so it reads as the
+    /// thing to throw at. Named for the validator: no floor, no wall to run, the anchor of a swing
+    public GameObject Anchor(float z, float y, float halfW, float x = 0f, bool leftPost = true, bool rightPost = true)
+    {
+        const float tall = 4f, d = 1.5f, tower = 1.4f;
+        float foot = Structural ? groundY : y - 1f;
+        var beam = Mass(x - halfW - 0.1f, x + halfW + 0.1f, y, y + tall, z - d, z + d, "SwingAnchor");
+        if (leftPost) Mass(x - halfW - 0.1f - tower, x - halfW - 0.1f, foot, y + tall, z - d, z + d, "Post");
+        if (rightPost) Mass(x + halfW + 0.1f, x + halfW + 0.1f + tower, foot, y + tall, z - d, z + d, "Post");
+        LevelKit.Prim(root, P(x, y - 0.09f, z - d + 0.2f), new Vector3(halfW * 2f, 0.18f, 0.18f), LevelKit.Brass, "AnchorBar", PrimitiveType.Cube, Rot);
+        LevelKit.LineRun(root, P(x - halfW, y, z - d - 0.05f), P(x + halfW, y, z - d - 0.05f), zone, 0.05f);   // the lit line along the edge the whip is thrown at
+        Lamp(x, y - 1.2f, z - d - 1f, 22f, 2.4f);
+        return beam;
+    }
+
+    /// What a leg built in a frame of its own (Sub) stood up is counted in this one: the heights and the footprint
+    public void Take(Frame sub)
+    {
+        lowest = Mathf.Min(lowest, sub.lowest); highest = Mathf.Max(highest, sub.highest);
+        built.Encapsulate(sub.built);
+    }
+
     /// A BEAM: a floor `wide` across, from (x0, z0) to (x1, z1) along the frame's x or z (the other equal), its top at y;
     /// it ends exactly at its ends, so a pad it meets is touched and not overlapped. A walkway: posts under its ends
     public GameObject Beam(float x0, float z0, float x1, float z1, float y, float wide, string name = "ControlBeam")
@@ -351,6 +377,9 @@ public static class BeatMath
         var off = LevelMetricsMath.WallJump(v, speed, 0f);
         return run.levelDistance + LevelMetricsMath.Jump(v, off.h, off.vy, dy, false).distance;
     }
+    /// How far a swing on the whip carries: thrown at `speed` at an anchor `ahead` metres on and `up` over the feet, let go
+    /// at the best moment, to a landing `fall` metres below the launch (the whip's own rules: LevelMetricsMath.WhipSwing)
+    public static float SwingReach(LevelMetricsMath.Values v, float speed, float ahead, float up, float fall) => LevelMetricsMath.SwingOver(v, speed, ahead, up, -fall).distance;
     /// The horizontal a walk-off carries while falling `h`
     public static float FallCarry(LevelMetricsMath.Values v, float speed, float h) => speed * LevelMetricsMath.FallTime(v, h, false);
     public static float Sin(float deg) => Mathf.Sin(deg * Mathf.Deg2Rad);
