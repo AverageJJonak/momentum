@@ -165,6 +165,7 @@ public static class LevelValidator
         public float minX, maxX, minZ, maxZ;   // the top face's footprint
         public Vector3 c, n;                   // a point on the top plane and its normal
         public float slope;                    // degrees
+        public bool vault;                  // a MARKED ledge (MoveSurface, or named Vault…): gone over with the speed brought, when it is no more than two metres up
         public bool lip, pad, kick, lift;   // lift: a top a wall run's lift can put the player on (a wall's own top, a block, a lintel) that is no floor of any line
         public float YAt(float x, float z) => c.y - (n.x * (x - c.x) + n.z * (z - c.z)) / Mathf.Max(0.2f, n.y);
         public float Width => maxX - minX;
@@ -176,8 +177,12 @@ public static class LevelValidator
     public class Wall { public string name; public Collider col; public Vector3 c, n, u; public float halfLen, bottom, top; public bool kick; }
     public class Ceil { public Collider col; public float minX, maxX, minZ, maxZ, top, thick; public Vector3 c, n; public float YAt(float x, float z) => c.y - (n.x * (x - c.x) + n.z * (z - c.z)) / Mathf.Min(-0.2f, n.y); }   // thick: the mass's vertical depth over this underside (a pitched box's top is YAt + thick, not `top`)
 
+    /// An arch the whip is thrown at (the kit's SwingAnchor): its footprint, its underside and its top
+    public class Anchor { public float minX, maxX, minZ, maxZ, bottom, top; public Vector3 Centre => new Vector3((minX + maxX) * 0.5f, bottom, (minZ + maxZ) * 0.5f); }
+
     public class Geometry
     {
+        public List<Anchor> anchors = new List<Anchor>();
         public List<Plat> plats = new List<Plat>();
         public List<Wall> walls = new List<Wall>();
         public List<Ceil> ceils = new List<Ceil>();
@@ -204,6 +209,14 @@ public static class LevelValidator
                 string name = col.gameObject.name;
                 bool lip = name.StartsWith("Lip") || name.EndsWith("Lip") || name.Contains("Plinth") || name.Contains("Kerb");
                 bool pad = name == "JumpPad", kick = name == "KickWall";
+                bool vault = name.StartsWith("Vault") || MoveSurface.Is(col, MoveSurface.Kind.Vault);
+                if (name == "SwingAnchor")
+                {
+                    var an = new Anchor { bottom = wc.y - (Mathf.Abs(axes[0].y) * ext[0] + Mathf.Abs(axes[1].y) * ext[1] + Mathf.Abs(axes[2].y) * ext[2]) };
+                    an.top = 2f * wc.y - an.bottom;
+                    Footprint(wc, axes[0] * ext[0], axes[2] * ext[2], out an.minX, out an.maxX, out an.minZ, out an.maxZ);
+                    g.anchors.Add(an);
+                }
                 for (int a = 0; a < 3; a++)
                     for (int sgn = -1; sgn <= 1; sgn += 2)
                     {
@@ -213,8 +226,8 @@ public static class LevelValidator
                         Vector3 e1 = axes[b1] * ext[b1], e2 = axes[b2] * ext[b2];
                         if (nf.y >= 0.707f)
                         {
-                            bool lift = name == "Lintel" || name == "Post" || name == "SettleBlock" || name == "KickWall" || name == "Divider" || name == "Cornice" || name == "Facade" || name == "Machinery" || name.EndsWith("Body");   // the top of a portal, a block, a wall, a cornice: not a floor of any line, but a wall run's lift can reach it (a body's top is inside its building: nothing)
-                            var p = new Plat { id = g.plats.Count, name = name, col = col, c = fc, n = nf, slope = Vector3.Angle(nf, Vector3.up), lip = lip, pad = pad, kick = kick, lift = lift };
+                            bool lift = name == "Lintel" || name == "Post" || name == "SettleBlock" || name == "KickWall" || name == "Divider" || name == "Cornice" || name == "Facade" || name == "Machinery" || name == "SwingAnchor" || name.EndsWith("Body");   // the top of a portal, a block, a wall, a cornice: not a floor of any line, but a wall run's lift can reach it (a body's top is inside its building: nothing)
+                            var p = new Plat { id = g.plats.Count, name = name, col = col, c = fc, n = nf, slope = Vector3.Angle(nf, Vector3.up), lip = lip, pad = pad, kick = kick, lift = lift, vault = vault };
                             Footprint(fc, e1, e2, out p.minX, out p.maxX, out p.minZ, out p.maxZ);
                             if (p.Width < 0.3f || p.Depth < 0.3f) continue;
                             g.plats.Add(p);
@@ -304,8 +317,8 @@ public static class LevelValidator
 
     // ---------------------------------------------------------------- the graph
 
-    public enum Move { Walk, Drop, Step, Jump, DoubleJump, WallRun }
-    public class Edge { public int from, to; public Move move; public float gap, dy, speed, cost; public bool trivial; public Vector3 a, b; public Wall wall; }
+    public enum Move { Walk, Drop, Step, Jump, DoubleJump, WallRun, Swing }
+    public class Edge { public int from, to; public Move move; public float gap, dy, speed, cost; public bool trivial; public Vector3 a, b; public Wall wall; public float swingAhead, swingUp; }   // swingAhead/Up: where the arch is from the launch (a whip swing)
 
     static List<Edge>[] Graph(Geometry g, Reach r)
     {
@@ -323,11 +336,12 @@ public static class LevelValidator
                 if (gap > ReachLimit) continue;
                 if (gap <= 0f && (P.slope >= 3f || Q.slope >= 3f)) LowEdgeJoin(P, Q, ref a, ref b);   // a ramp lying on a floor joins it at its foot, not at the overlap's middle
                 else if (gap <= 0f && Clearance(g, Q, b) < 1.0f) EdgeJoin(P, Q, ref a, ref b, ref gap);   // a floor running on under a deck joins at the deck's edge, not under it
+                if (gap <= Touch && Mathf.Max(Mathf.Min(P.maxX, Q.maxX) - Mathf.Max(P.minX, Q.minX), Mathf.Min(P.maxZ, Q.maxZ) - Mathf.Max(P.minZ, Q.minZ)) < 0.6f) continue;   // two floors that meet only at a corner: nothing is walked or stepped through a point (the fork's courts touch the mouth's tongues so)
                 float ya = P.YAt(a.x, a.z), yb = Q.YAt(b.x, b.z);
                 float dy = yb - ya;
                 if (dy > 2f || dy < -40f) continue;
                 a.y = ya; b.y = yb;
-                bool vaultRise = gap <= Touch && dy > StepMin && dy <= 2.05f && Q.name.StartsWith("Vault");   // STEP 3: at the foot of a MARKED ledge the ledge's own slab hangs over the last of the floor below: that is the ledge, not a ceiling
+                bool vaultRise = gap <= Touch && dy > StepMin && dy <= 2.05f && Q.vault;   // STEP 3: at the foot of a MARKED ledge the ledge's own slab hangs over the last of the floor below: that is the ledge, not a ceiling
                 if (Clearance(g, P, a, vaultRise ? Q.col : null) < 1.0f || Clearance(g, Q, b) < 1.0f) continue;   // no headroom to leave or to land: not a way
                 var e = new Edge { from = i, to = j, gap = gap, dy = dy, a = a, b = b };
                 if (gap <= Touch && Mathf.Abs(dy) <= StepMin) { e.move = Move.Walk; e.cost = 0f; }
@@ -343,8 +357,14 @@ public static class LevelValidator
                     for (int k = 0; k < Speeds.Length; k++) { float carry = WallCarry(g, P, a, b, ya, Speeds[k], dy, r.v, out Wall last); if (carry >= need) { ws = k; wall = last; break; } }
                     for (int k = 0; k < Speeds.Length; k++) if (r.Double(k, dy) >= need) { ds = k; break; }
                     float jc = js >= 0 ? Speeds[js] : float.MaxValue, wc = ws >= 0 ? Speeds[ws] + 1f : float.MaxValue, dc = ds >= 0 ? Speeds[ds] + 4f : float.MaxValue;
-                    if (jc == float.MaxValue && wc == float.MaxValue && dc == float.MaxValue) continue;
-                    if (jc <= wc && jc <= dc) { e.move = Move.Jump; e.speed = Speeds[js]; e.cost = jc; e.trivial = dy > -2f && r.Plain(0, dy) >= 1.5f * need; }   // a drop onto a landing is a fall, not a trivial gap
+                    // THE WHIP (2026-11-11): an arch over the line is a swing across (two pips: dearer on the ladder than a second jump)
+                    int ss = -1; float sAhead = 0f, sUp = 0f;
+                    if (gap > 4f && OverArch(g, a, b, ya, out sAhead, out sUp))
+                        for (int k = 0; k < Speeds.Length; k++) { var sw = LevelMetricsMath.SwingOver(r.v, Speeds[k], sAhead, sUp, dy); if (sw.ok && sw.distance >= need) { ss = k; break; } }
+                    float sc = ss >= 0 ? Speeds[ss] + 5f : float.MaxValue;
+                    if (jc == float.MaxValue && wc == float.MaxValue && dc == float.MaxValue && sc == float.MaxValue) continue;
+                    if (sc < jc && sc < wc && sc < dc) { e.move = Move.Swing; e.speed = Speeds[ss]; e.cost = sc; e.swingAhead = sAhead; e.swingUp = sUp; }
+                    else if (jc <= wc && jc <= dc) { e.move = Move.Jump; e.speed = Speeds[js]; e.cost = jc; e.trivial = dy > -2f && r.Plain(0, dy) >= 1.5f * need; }   // a drop onto a landing is a fall, not a trivial gap
                     else if (wc <= dc) { e.move = Move.WallRun; e.speed = Speeds[ws]; e.cost = wc; e.wall = wall; }
                     else { e.move = Move.DoubleJump; e.speed = Speeds[ds]; e.cost = dc; }
                 }
@@ -352,6 +372,28 @@ public static class LevelValidator
             }
         }
         return edges;
+    }
+
+    /// An arch over the line from `a` to `b` to throw the whip at: its near edge between three metres on and the far side of
+    /// the gap, the line passing under it (or within a metre and a half of its end), its underside four to thirty metres over the launch
+    static bool OverArch(Geometry g, Vector3 a, Vector3 b, float floorY, out float ahead, out float up)
+    {
+        ahead = up = 0f;
+        Vector3 d = b - a; d.y = 0f;
+        float len = d.magnitude;
+        if (len < 4f || g.anchors.Count == 0) return false;
+        d /= len;
+        Vector3 side = new Vector3(-d.z, 0f, d.x);
+        bool found = false;
+        foreach (var an in g.anchors)
+        {
+            Vector3 rel = an.Centre - a; rel.y = 0f;
+            float deep = 0.5f * (Mathf.Abs(d.x) * (an.maxX - an.minX) + Mathf.Abs(d.z) * (an.maxZ - an.minZ)), wide = 0.5f * (Mathf.Abs(d.z) * (an.maxX - an.minX) + Mathf.Abs(d.x) * (an.maxZ - an.minZ));
+            float near = Vector3.Dot(rel, d) - deep, lat = Mathf.Abs(Vector3.Dot(rel, side)) - wide, h = an.bottom - floorY;
+            if (near < 3f || near > len || near > 20f || lat > 1.5f || h < 4f || h > 30f) continue;   // further than twenty metres on it is a longer rope than the floor under the gap allows: the model has no floor in it
+            if (!found || near < ahead) { ahead = near; up = h; found = true; }
+        }
+        return found;
     }
 
     /// The straight-line gap between two footprints and the nearest points on each
@@ -636,14 +678,15 @@ public static class LevelValidator
     /// Seconds along `edges` from `entry` (on the first edge's floor) to `exit` (on the last edge's landing), at `speed`.
     /// `executed`: the speed is kept on the flat (hops inside the grace), a downhill slope is slid and gains, a landing
     /// on a slope keeps the fall's share along it. Not executed: run speed everywhere, slopes ridden, drops fallen
-    static float PathTime(Geometry g, LevelMetricsMath.Values v, List<Edge> edges, Vector3 entry, Vector3 exit, float speed, bool executed, out float arrive, out string moves)
+    /// `full` (the forks, 2026-11-11): a rail is ridden with its own gain, a flat with no room to hop is a slide that bleeds, a wall run's jump is paid
+    static float PathTime(Geometry g, LevelMetricsMath.Values v, List<Edge> edges, Vector3 entry, Vector3 exit, float speed, bool executed, out float arrive, out string moves, bool full = false)
     {
         float t = 0f, sp = executed ? speed : v.baseRunSpeed, flown = 0f;   // flown: ground already covered in the air when the feet touch the next floor
         var sb = new StringBuilder();
         foreach (var e in edges)
         {
             var P = g.plats[e.from]; var Q = g.plats[e.to];
-            t += Traverse(v, P, entry, e.a, ref sp, executed, ref flown);
+            t += Traverse(g, v, P, entry, e.a, ref sp, executed, ref flown, full);
             float need = e.move == Move.Walk || e.move == Move.Drop || e.move == Move.Step ? 0f : e.speed;
             float at = Mathf.Max(sp, need);   // a move that wants more than is carried is made at what it wants (the line asks it)
             switch (e.move)
@@ -670,14 +713,24 @@ public static class LevelValidator
                 case Move.WallRun:
                 {
                     t += (e.gap + Margin) / Mathf.Max(1f, at);   // the run keeps its pace, the jump off it too
-                    sp = Land(v, Q, at, Mathf.Max(0f, -e.dy), executed);
+                    sp = Land(v, Q, full && executed ? Mathf.Min(SnowballCap, LevelMetricsMath.WallJump(v, at, 0f).h) : at, Mathf.Max(0f, -e.dy), executed);
+                    break;
+                }
+                case Move.Swing:
+                {
+                    // the whip let go at the quickest release that lands within twelve metres past the gap; the furthest one if none does
+                    var sw = LevelMetricsMath.SwingOver(v, at, e.swingAhead, e.swingUp, e.dy, e.gap + Margin, e.gap + Margin + 12f);
+                    if (!sw.ok) sw = LevelMetricsMath.SwingOver(v, at, e.swingAhead, e.swingUp, e.dy);
+                    t += sw.seconds;
+                    flown = Mathf.Max(0f, sw.distance - (e.gap + Margin));
+                    sp = Land(v, Q, executed ? sw.h : at, Mathf.Max(0f, -e.dy), executed);
                     break;
                 }
             }
             sb.Append(sb.Length > 0 ? " → " : "").Append(MoveWord(e));
             entry = e.b;
         }
-        if (edges.Count > 0) t += Traverse(v, g.plats[edges[edges.Count - 1].to], entry, exit, ref sp, executed, ref flown);
+        if (edges.Count > 0) t += Traverse(g, v, g.plats[edges[edges.Count - 1].to], entry, exit, ref sp, executed, ref flown, full);
         arrive = sp;
         moves = sb.ToString();
         return t;
@@ -685,13 +738,30 @@ public static class LevelValidator
 
     /// The run across a floor from `from` to `to`: on the flat the speed is kept (executed) or is run speed; down a
     /// slope an executed line slides and gains
-    static float Traverse(LevelMetricsMath.Values v, Plat P, Vector3 from, Vector3 to, ref float sp, bool executed, ref float flown)
+    static float Traverse(Geometry g, LevelMetricsMath.Values v, Plat P, Vector3 from, Vector3 to, ref float sp, bool executed, ref float flown, bool full = false)
     {
         float len = Flat(from, to);
         float credit = Mathf.Min(flown, len); len -= credit; flown = 0f;   // what the last arc or fall already covered
         if (len < 0.05f) return 0f;
-        if (!executed) { sp = v.baseRunSpeed; return len / sp; }
         Vector3 d = to - from; d.y = 0f; d.Normalize();
+        if (full && P.name == "ControlRail")
+        {
+            // a rail carries anyone who stands on it: never under its least speed, its own gain and gravity's share of its fall
+            float downhill = P.slope > 0.5f ? (Vector3.Dot(P.Uphill, d) < 0f ? 1f : -1f) : 0f;
+            float a = v.grindAccel + v.gravity * Mathf.Sin(P.slope * Mathf.Deg2Rad) * downhill, s0 = Mathf.Max(sp, v.grindMinSpeed);
+            float s1 = Mathf.Sqrt(Mathf.Max(v.grindMinSpeed * v.grindMinSpeed, s0 * s0 + 2f * a * len));
+            sp = s1;
+            return len / Mathf.Max(1f, (s0 + s1) * 0.5f);
+        }
+        if (!executed) { sp = v.baseRunSpeed; return len / sp; }
+        if (full && P.slope < 8f && sp > v.baseRunSpeed && ClearanceAlong(g, P, from, to, out _) < HopRoom)
+        {
+            // no room to hop (a low roof, an arch): the speed over a run's is kept only by a slide, and a flat slide bleeds
+            float s1 = Mathf.Max(v.baseRunSpeed, sp - v.slideFriction * len);
+            float tt = len / Mathf.Max(1f, (sp + s1) * 0.5f);
+            sp = s1;
+            return tt;
+        }
         if (P.slope >= 8f && Vector3.Dot(P.Uphill, d) < -0.5f)
         {
             float gain = LevelMetricsMath.SlideSlopeGain(v, P.slope);
@@ -724,11 +794,175 @@ public static class LevelValidator
         Move.Jump => "jump " + e.gap.ToString("0.0", Ci) + " m",
         Move.DoubleJump => "double jump " + e.gap.ToString("0.0", Ci) + " m",
         Move.WallRun => "wall run " + e.gap.ToString("0.0", Ci) + " m",
+        Move.Swing => "whip swing " + e.gap.ToString("0.0", Ci) + " m",
         _ => e.move.ToString(),
     };
 
     static string HiddenLine(HiddenReport h) =>
         "HIDDEN ROUTE " + h.segment + ", pad to pad: the lit line " + h.mainRun.ToString("0.0", Ci) + " s as a run (" + h.mainKept.ToString("0.0", Ci) + " s keeping " + h.speed.ToString("0", Ci) + " m/s) · the high line " + h.hidden.ToString("0.0", Ci) + " s at " + h.speed.ToString("0", Ci) + " m/s executed → SAVES " + h.SavesRun.ToString("0.0", Ci) + " s (" + h.SavesKept.ToString("0.0", Ci) + " s against a kept lit line); arrives at the merge at " + h.hiddenArrive.ToString("0", Ci) + " m/s against " + h.mainArrive.ToString("0", Ci) + " kept / " + "8 run. High line: " + h.hiddenMoves + ". Lit line: " + h.mainMoves + ".";
+
+    // ---------------------------------------------------------------- the forks (2026-11-11)
+
+    /// Which of a fork's lines a floor is: 3 the high line's (a rail too), 2 the middle's, 1 the low line's, 0 everyone's
+    static int ForkLine(Plat p) => p.name.StartsWith("ForkHigh") || p.name == "ControlRail" ? 3 : p.name.StartsWith("ForkMid") ? 2 : p.name.StartsWith("ForkLow") || IsNet(p) ? 1 : 0;
+    /// A NET: the floor under a fork's high lines that catches a miss (the kit's ForkCourt). It is at the low line's level and a way on from where a
+    /// fall lands, but no line is ever routed through it: the way a level is meant to be gone through does not begin with falling off it
+    static bool IsNet(Plat p) => p.name == "ForkCourt";
+    static readonly string[] ForkWord = { "everyone's", "LOW", "MIDDLE", "HIGH" };
+
+    public class ForkRoute { public int line; public bool broken, needsAMove, caught = true; public string why, moves, hardest, falls, window; public float seconds, asRun, arrive; }
+    public class ForkReport
+    {
+        public string segment; public float speed; public Vector3 at, forward, mouth; public Bounds bounds;
+        public List<ForkRoute> routes = new List<ForkRoute>();
+        public List<string> drops = new List<string>(), waysUp = new List<string>();
+        public bool ordered;
+        public ForkRoute Of(int line) => routes.Find(x => x.line == line);
+    }
+
+    static string ForkSeconds(ForkReport fk, int line) { var rt = fk.Of(line); return rt == null || rt.broken ? "broken" : rt.seconds.ToString("0.0", Ci); }
+
+    static string ForkOrder(ForkReport fk)
+    {
+        var h = fk.Of(3); var m = fk.Of(2); var l = fk.Of(1);
+        if (h == null || m == null || l == null || h.broken || m.broken || l.broken) return "NOT JUDGED (a line is broken)";
+        return (fk.ordered ? "yes" : "NO") + ": the high line " + (m.seconds - h.seconds).ToString("+0.0;-0.0", Ci) + " s on the middle, the middle " + (l.seconds - m.seconds).ToString("+0.0;-0.0", Ci) + " s on the low (as plain runs: " + h.asRun.ToString("0.0", Ci) + " / " + m.asRun.ToString("0.0", Ci) + " / " + l.asRun.ToString("0.0", Ci) + " s)";
+    }
+
+    static string ForkText(ForkReport fk)
+    {
+        var sb = new StringBuilder("FORK " + fk.segment + ", pad to pad at " + fk.speed.ToString("0", Ci) + " m/s:");
+        foreach (var rt in fk.routes) sb.Append(" " + ForkWord[rt.line] + " " + (rt.broken ? "BROKEN (" + rt.why + ")" : rt.seconds.ToString("0.0", Ci) + " s → " + rt.arrive.ToString("0", Ci) + " m/s") + ";");
+        sb.Append(" harder is faster: " + ForkOrder(fk) + "; drops " + fk.drops.Count + ", ways up " + fk.waysUp.Count);
+        return sb.ToString();
+    }
+
+    /// A fork's three lines, each walked with the other two lines' floors left out, timed executed well and as a plain run;
+    /// the move a run cannot make on each hard line; what a miss over each gap comes down on, and whether the level can be
+    /// finished from there; the drops and the ways up between the lines. The findings: a line that breaks, a harder line that
+    /// is not the faster, a hard line a run gets through, a miss that is a reset, a fork with no drop or no way up
+    static ForkReport Forks(Geometry g, LevelMetricsMath.Values v, List<Edge>[] edges, string segName, Vector3 from, Vector3 to, float speed, Result res)
+    {
+        var fr = new ForkReport { segment = segName, speed = speed, at = from, forward = to - from, mouth = from };
+        bool anyBounds = false;
+        for (int line = 3; line >= 1; line--)
+        {
+            int own = line;
+            var seg = Walk(g, edges, segName, from, to, p => { int l = ForkLine(p); return IsNet(p) || (l != 0 && l != own); });
+            var rt = new ForkRoute { line = line, broken = seg.broken, why = seg.deadEnd };
+            fr.routes.Add(rt);
+            var seq = Sequence(seg);
+            if (!rt.broken && !seq.Exists(k => ForkLine(g.plats[k]) == own)) { rt.broken = true; rt.why = "the way through never stands on a floor of this line"; }
+            if (rt.broken)
+            {
+                res.findings.Add(new Finding { severity = 100, title = "A LINE OF THE FORK BREAKS", segment = segName, at = seg.deadAt,
+                    experience = "The " + ForkWord[line] + " line cannot be followed from the mouth to the rejoin on its own floors.",
+                    where = "Segment " + segName + ": " + rt.why + ".", why = "Walked with the other lines' floors left out, no chain of moves in the metrics reaches the next pad." });
+                continue;
+            }
+            foreach (int k in seq)
+            {
+                var P = g.plats[k];
+                if (P.name == "ForkMouth") fr.mouth = new Vector3(P.Centre.x, P.Centre.y, P.Centre.z);
+                if (ForkLine(P) == 0 && !P.name.StartsWith("Fork")) continue;
+                var pb = new Bounds(P.Centre, new Vector3(P.Width, 1f, P.Depth));
+                if (!anyBounds) { fr.bounds = pb; anyBounds = true; } else fr.bounds.Encapsulate(pb);
+            }
+            Vector3 entry = from; entry.y = g.plats[seq[0]].YAt(entry.x, entry.z);
+            Vector3 exit = to; exit.y = g.plats[seq[seq.Count - 1]].YAt(exit.x, exit.z);
+            rt.seconds = PathTime(g, v, seg.path, entry, exit, speed, true, out rt.arrive, out rt.moves, true);
+            rt.asRun = PathTime(g, v, seg.path, entry, exit, v.baseRunSpeed, false, out _, out _, true);
+            while (rt.moves.Contains("run → run")) rt.moves = rt.moves.Replace("run → run", "run");
+            rt.needsAMove = seg.gateEdge != null && seg.gate > v.baseRunSpeed + 0.5f;   // the easiest way along it still holds a move dearer than a jump at a run
+            rt.hardest = seg.gateEdge != null ? MoveWord(seg.gateEdge) : "a run";
+            if (line >= 2 && !rt.needsAMove)
+                res.findings.Add(new Finding { severity = 90, title = "A HARD LINE CAN BE RUN THROUGH", segment = segName, at = from,
+                    experience = "The " + ForkWord[line] + " line of the fork can be followed from the mouth to the rejoin with nothing harder than " + rt.hardest + ": simply running gets through it.",
+                    where = "Segment " + segName + ": " + rt.moves + ".", why = "A hard line has to hold a move a run cannot make (a wall run, a swing, a gap that wants speed), or it is only the scenic way." });
+            // a miss over any gap of the line: what is under it, and whether the level can be finished from there
+            var misses = new List<string>();
+            foreach (var e in seg.path)
+            {
+                if (!(e.move == Move.Jump || e.move == Move.DoubleJump || e.move == Move.WallRun || e.move == Move.Swing) || e.gap < 2f) continue;
+                Vector3 d = e.b - e.a; d.y = 0f;
+                float len = d.magnitude; d /= Mathf.Max(0.01f, len);
+                float deepest = 0f; string onto = null; bool hole = false; Vector3 holeAt = e.a, netAt = e.a; Plat net = null;
+                for (float u = 1f; u <= len - 0.5f && !hole; u += 1f)
+                {
+                    Vector3 p = e.a + d * u;
+                    Plat best = null; float top = float.NegativeInfinity;
+                    foreach (var c in g.plats)
+                    {
+                        if (c.id == e.from || c.id == e.to || !Inside(c, p, 0f)) continue;
+                        float y = c.YAt(p.x, p.z);
+                        if (y > Mathf.Max(e.a.y, e.b.y) - 0.5f || y <= top) continue;
+                        best = c; top = y;
+                    }
+                    if (best == null) { hole = true; holeAt = p; break; }
+                    if (e.a.y - top > deepest) { deepest = e.a.y - top; onto = best.name; }
+                    if (net == null && !best.lift) { net = best; netAt = new Vector3(p.x, top + 0.1f, p.z); }
+                }
+                if (e.move == Move.Swing)
+                {
+                    var Q = g.plats[e.to];
+                    float deep = Mathf.Abs(d.x) >= Mathf.Abs(d.z) ? Q.Width : Q.Depth, with = Mathf.Max(speed, e.speed);
+                    var win = LevelMetricsMath.SwingWindow(v, with, e.swingAhead, e.swingUp, e.dy, e.gap + Margin, e.gap + deep);
+                    rt.window = "the whip thrown at " + with.ToString("0", Ci) + " m/s lands on the " + deep.ToString("0", Ci) + " m roof when let go between " + win.from.ToString("0.00", Ci) + " and " + win.to.ToString("0.00", Ci) + " s after the throw (" + (win.to - win.from).ToString("0.00", Ci) + " s)";
+                }
+                bool on = !hole && net != null && !Walk(g, edges, segName, netAt, to).broken;
+                misses.Add(MoveWord(e) + ": " + (hole ? "NOTHING UNDER IT at " + Fmt(holeAt) : "'" + onto + "' " + deepest.ToString("0.0", Ci) + " m below" + (on ? "" : " AND NO WAY ON FROM THERE")));
+                if (on) continue;
+                rt.caught = false;
+                res.findings.Add(new Finding { severity = 90, title = "A MISS ON THE FORK IS A RESET", segment = segName, at = hole ? holeAt : netAt,
+                    experience = "A miss over the " + MoveWord(e) + " of the " + ForkWord[line] + " line " + (hole ? "finds no floor under it: a fall out of the level and a respawn." : "lands on '" + onto + "', and nothing leads on from there."),
+                    where = "Segment " + segName + ": from '" + g.plats[e.from].name + "' to '" + g.plats[e.to].name + "' at " + Fmt(e.a) + ".", why = "A fork's higher lines are meant to drop a miss onto a lower line that still finishes." });
+            }
+            rt.falls = misses.Count > 0 ? string.Join("; ", misses) : "no gap on it";
+        }
+        // harder is faster
+        var hi = fr.Of(3); var mid = fr.Of(2); var low = fr.Of(1);
+        bool whole = hi != null && mid != null && low != null && !hi.broken && !mid.broken && !low.broken;
+        fr.ordered = whole && hi.seconds < mid.seconds && mid.seconds < low.seconds;
+        if (whole && !fr.ordered)
+            res.findings.Add(new Finding { severity = 90, title = "A HARDER LINE IS NOT THE FASTER ONE", segment = segName, at = fr.mouth,
+                experience = "Executed well, the fork's lines take " + hi.seconds.ToString("0.0", Ci) + " s (high), " + mid.seconds.ToString("0.0", Ci) + " s (middle) and " + low.seconds.ToString("0.0", Ci) + " s (low): the harder line does not pay for its risk.",
+                where = "Segment " + segName + ".", why = "The harder a line, the less time it should take when it is done right: a shorter way, a slope that pays, or a slower low line." });
+        // what joins the lines: the drops down and the ways up, among this fork's own floors
+        if (anyBounds)
+        {
+            fr.bounds.Expand(new Vector3(4f, 200f, 4f));
+            var here = new HashSet<int>();
+            for (int i = 0; i < g.plats.Count; i++) { var P = g.plats[i]; if (ForkLine(P) != 0 && !P.lift && fr.bounds.Contains(new Vector3(P.Centre.x, fr.bounds.center.y, P.Centre.z))) here.Add(i); }
+            var drops = new Dictionary<string, (int n, float least, float most)>();
+            foreach (int i in here)
+                foreach (var e in edges[i])
+                {
+                    if (!here.Contains(e.to)) continue;
+                    var P = g.plats[e.from]; var Q = g.plats[e.to];
+                    int lp = ForkLine(P), lq = ForkLine(Q);
+                    if (lq == lp) continue;
+                    if (lq < lp && e.dy < -0.5f && (e.move == Move.Drop || e.move == Move.Jump))
+                    {
+                        string key = ForkWord[lp] + " → " + ForkWord[lq];
+                        drops[key] = drops.TryGetValue(key, out var was) ? (was.n + 1, Mathf.Min(was.least, -e.dy), Mathf.Max(was.most, -e.dy)) : (1, -e.dy, -e.dy);
+                    }
+                    else if (lq > lp && e.dy > 0.3f)
+                    {
+                        string how = e.move == Move.Walk ? "a VAULT of " + e.dy.ToString("0.0", Ci) + " m" : e.move == Move.Step ? "a climb of " + e.dy.ToString("0.0", Ci) + " m" : e.move == Move.DoubleJump ? "a second jump, " + e.dy.ToString("0.0", Ci) + " m up" : MoveWord(e) + " " + UpDown(e.dy);
+                        string text = ForkWord[lp] + " → " + ForkWord[lq] + ": '" + P.name + "' to '" + Q.name + "', " + how;
+                        if (!fr.waysUp.Contains(text)) fr.waysUp.Add(text);
+                    }
+                }
+            foreach (var kv in drops) fr.drops.Add(kv.Key + " ×" + kv.Value.n + " (" + kv.Value.least.ToString("0.0", Ci) + (kv.Value.most > kv.Value.least + 0.05f ? " to " + kv.Value.most.ToString("0.0", Ci) : "") + " m)");
+        }
+        if (fr.drops.Count == 0)
+            res.findings.Add(new Finding { severity = 60, title = "NO DROP BETWEEN THE FORK'S LINES", segment = segName, at = fr.mouth,
+                experience = "Nothing leads from a higher line of the fork down onto a lower one.", where = "Segment " + segName + ".", why = "A fork's lines should be joined: a drop from a higher line onto a lower one is a choice made late." });
+        if (fr.waysUp.Count == 0)
+            res.findings.Add(new Finding { severity = 60, title = "NO WAY UP BETWEEN THE FORK'S LINES", segment = segName, at = fr.mouth,
+                experience = "Nothing leads from a lower line of the fork up onto a higher one.", where = "Segment " + segName + ".", why = "A hidden way up lets a player who took the low line, or fell onto it, earn the faster line back." });
+        return fr;
+    }
 
     // ---------------------------------------------------------------- the snowball (2026-10-29)
 
@@ -787,6 +1021,16 @@ public static class LevelValidator
                     Cash(v, r); r.launches.Add((e, r.sp, r.sp));
                     r.sp = Land(v, Q, r.sp, Mathf.Max(0f, -e.dy), true); Press(g, v, r, Q, e.b);
                     break;
+                case Move.Swing:
+                {
+                    // the whip: thrown at what the rider has, let go at the quickest release that lands (the release is the player's: nothing is shed)
+                    Cash(v, r);
+                    float with = Mathf.Max(r.sp, e.speed);
+                    r.launches.Add((e, with, with));
+                    var sw = LevelMetricsMath.SwingOver(v, with, e.swingAhead, e.swingUp, e.dy, e.gap + Margin, e.gap + Margin + 12f);
+                    r.sp = Land(v, Q, Mathf.Min(SnowballCap, sw.ok ? sw.h : with), Mathf.Max(0f, -e.dy), true); Press(g, v, r, Q, e.b);
+                    break;
+                }
                 case Move.Jump:
                 case Move.DoubleJump:
                 case Move.WallRun:
@@ -1074,6 +1318,18 @@ public static class LevelValidator
             float sized = Mathf.Max(seg.sized, e.speed);
             if (skip && (Q.name.StartsWith("Settle") || Q.name.StartsWith("Bend") || P.name.StartsWith("Bend") || P.name.StartsWith("Descent") || Mathf.Max(Yp, Yc) < 0.8f * sized)) continue;   // a hop onto the settle square, or from or onto a bend facet (a bend is cut by hopping round it; the beat after it is the test), is the corner's own business; a skip the rider is nowhere near fast enough for is not news
             Move how = HowOf(v, e, sized);
+            if (e.move == Move.Swing)
+            {
+                // a swing's landing is the release's business, not the speed's: what is said of it is the window, and whether a plain jump makes the whip needless
+                int pf = Fate(g, v, e, Yp, Move.Jump, out string pw), cf = Fate(g, v, e, Yc, Move.Jump, out string cw);
+                bool pt = pf == 0 && Yp >= TrivialOver * sized, ct = cf == 0 && Yc >= TrivialOver * sized;
+                Vector3 sd = e.b - e.a;
+                float deep = Mathf.Abs(sd.x) >= Mathf.Abs(sd.z) ? Q.Width : Q.Depth;
+                var win = LevelMetricsMath.SwingWindow(v, sized, e.swingAhead, e.swingUp, e.dy, e.gap + Margin, e.gap + deep);
+                sc.gaps.Add("'" + P.name + "' → '" + Q.name + "', " + MoveWord(e) + " " + UpDown(e.dy) + ": the whip thrown at the arch " + e.swingAhead.ToString("0", Ci) + " m on and " + e.swingUp.ToString("0", Ci) + " m up; at " + sized.ToString("0", Ci) + " m/s it lands on the " + deep.ToString("0", Ci) + " m of '" + Q.name + "' when let go between " + win.from.ToString("0.00", Ci) + " and " + win.to.ToString("0.00", Ci) + " s after the throw (a window of " + (win.to - win.from).ToString("0.00", Ci) + " s) · arrives at " + Yp.ToString("0.0", Ci) + " m/s from the pad (a plain jump " + pw + (pt ? ": TRIVIAL" : "") + "), " + Yc.ToString("0.0", Ci) + " carried (" + cw + (ct ? ": TRIVIAL" : "") + ")");
+                if (pt || ct) res.trivial++;
+                continue;
+            }
             // the move's tolerance: up from the sized speed until its landing is a lintel or nothing
             float tol = SnowballCap; string then = null;
             for (float Y = Mathf.Ceil(sized); Y <= SnowballCap + 0.01f; Y += 1f)
@@ -1176,6 +1432,14 @@ public static class LevelValidator
             foreach (var p in g.plats)
             {
                 if (p == P || p.col == P.col || p.name == "Cornice" || p.name == "Lintel" || p.name == "Post" || p.name.EndsWith("Body") || p.name.StartsWith("Hidden")) continue;   // a hidden line's pieces are reached from its own wall by design
+                if (p.name.StartsWith("Fork") || (p.name == "ControlRail" && P.name.StartsWith("Fork")))
+                {
+                    // inside a fork a wall that lifts a run from one line onto a higher one is a way up, which a fork is meant to have: noted there, no finding
+                    float ft = p.YAt(p.Centre.x, p.Centre.z);
+                    if (ForkLine(P) >= 1 && ForkLine(p) > ForkLine(P) && ft >= floorY + 1.5f && ft <= reachY + 0.1f && InWallsReach(w, p))
+                        res.forkLifts.Add((w.c, ForkWord[ForkLine(P)] + " → " + ForkWord[ForkLine(p)] + ": a wall run on '" + w.name + "' beside '" + P.name + "' and the jumps off it lift onto '" + p.name + "', " + (ft - floorY).ToString("0.0", Ci) + " m up"));
+                    continue;
+                }
                 int po = LineOrder(g, orderOf, p), fo = LineOrder(g, orderOf, P);
                 if (po >= 0 && fo >= 0 && po <= fo) continue;   // a floor of the line behind the player is no skip (a facet the walker hopped over borrows the place of the nearest floor it did stand on: two curves in a row reached each other's earlier, higher facets this way, 2026-11-04)
                 float top = p.YAt(p.Centre.x, p.Centre.z);
@@ -1234,6 +1498,8 @@ public static class LevelValidator
         public List<Finding> findings = new List<Finding>();
         public List<Segment> segments = new List<Segment>();
         public List<HiddenReport> hidden = new List<HiddenReport>();   // every hidden line found and timed
+        public List<ForkReport> forks = new List<ForkReport>();        // every fork: its three lines walked and timed, what joins them
+        public List<(Vector3 at, string text)> forkLifts = new List<(Vector3, string)>();   // walls inside a fork that lift a run onto a higher line
         public List<SpeedCheck> speed = new List<SpeedCheck>();        // the snowball's verdict on every segment
         public List<LiftReport> lifts = new List<LiftReport>();        // every wall a run can be entered on from a floor, and what its lift reaches
         public int liftSkips;
@@ -1272,9 +1538,16 @@ public static class LevelValidator
             {
                 if (Flat(way[i].at, way[i + 1].at) < 2f && Mathf.Abs(way[i].at.y - way[i + 1].at.y) < 2f) continue;
                 string segName = way[i].name + " → " + way[i + 1].name;
-                var seg = Walk(g, edges, segName, way[i].at, way[i + 1].at);
+                var seg = Walk(g, edges, segName, way[i].at, way[i + 1].at, IsNet);
                 seg.sized = BeatLibrary.SizedSpeed(way[i].name, reach.v);   // the speed the beat behind this pad sizes its gap for (run speed where the pad is not a beat's)
                 res.segments.Add(seg);
+                // THE FORKS (2026-11-11): a segment that passes a fork's mouth has three lines; each is walked alone and timed
+                if (!seg.broken && Sequence(seg).Exists(k => g.plats[k].name == "ForkMouth"))
+                {
+                    var fk = Forks(g, reach.v, edges, segName, way[i].at, way[i + 1].at, BeatLibrary.ExpectedSpeed(way[i].name, reach.v), res);
+                    res.forks.Add(fk);
+                    Debug.Log("LevelValidator: " + ForkText(fk));
+                }
                 // THE HIDDEN ROUTES (2026-10-28): the same stretch walked without the hidden floors (the lit line) and without
                 // the lit line's own (the high line); where they part, each is timed and the saving reported
                 if (!hasHidden || seg.broken) continue;
@@ -1314,6 +1587,7 @@ public static class LevelValidator
                     {
                         case Move.Jump: res.jumps++; res.longestGap = Mathf.Max(res.longestGap, e.gap); res.flatMetres += traverse; break;
                         case Move.DoubleJump: res.jumps++; res.longestGap = Mathf.Max(res.longestGap, e.gap); res.flatMetres += traverse; break;
+                        case Move.Swing:
                         case Move.WallRun: res.jumps++; res.longestGap = Mathf.Max(res.longestGap, e.gap); res.flatMetres += traverse; break;
                         case Move.Drop: res.drops++; res.flatMetres += traverse; break;
                         case Move.Walk: res.flatMetres += segLen; break;
@@ -1337,7 +1611,7 @@ public static class LevelValidator
                         floorMakesIt = Range(reach.v, Move.Jump, level, 0f, level, reach.v.jumpImpulse, e.dy) >= e.gap + Margin || (e.move != Move.DoubleJump && level >= e.speed);   // or the roof makes the speed the edge's own move needs (a wall run off its end)
                     }
                     // the gate: the hardest move of the line
-                    if (e == seg.gateEdge && e.cost >= 14f && !floorMakesIt && !Q.name.StartsWith("Vault"))   // a marked ledge is vaulted (STEP 3): the rise the graph reads as a second jump costs nothing
+                    if (e == seg.gateEdge && e.cost >= 14f && !floorMakesIt && !Q.vault && e.move != Move.Swing)   // a marked ledge is vaulted (STEP 3): the rise the graph reads as a second jump costs nothing
                         res.findings.Add(new Finding { severity = e.move == Move.DoubleJump ? 70 : 55, title = e.move == Move.DoubleJump ? "THE ONLY WAY ON COSTS A PIP" : "THE ONLY WAY ON NEEDS " + e.speed.ToString("0", Ci) + " m/s", segment = seg.name, at = e.a,
                             experience = "Everyone has to carry " + e.speed.ToString("0", Ci) + " m/s into this jump" + (e.move == Move.DoubleJump ? " and spend a double jump" : "") + ", or fall. A first-time player at run speed (8 m/s) cannot clear it, so the level stops here for them.",
                             where = "Segment " + seg.name + ": from '" + P.name + "' to '" + Q.name + "', a gap of " + e.gap.ToString("0.0", Ci) + " m " + UpDown(e.dy) + ", at " + Fmt(e.a) + ".",
@@ -1352,6 +1626,11 @@ public static class LevelValidator
                             experience = "The gap is longer than a jump; the wall beside it carries a run and the jump off the wall lands it. Good, if the wall reads as the way.",
                             where = "Segment " + seg.name + ": '" + P.name + "' to '" + Q.name + "', " + e.gap.ToString("0.0", Ci) + " m along '" + e.wall.name + "' at " + Fmt(e.a) + ".",
                             why = "A run at " + e.speed.ToString("0", Ci) + " m/s stays level for " + LevelMetricsMath.Run(reach.v, e.speed, 0f).levelDistance.ToString("0.0", Ci) + " m, then the wall jump's arc covers the rest." });
+                    if (e.move == Move.Swing)
+                        res.findings.Add(new Finding { severity = 5, title = "THE WHIP CROSSES IT", segment = seg.name, at = e.a,
+                            experience = "The gap is longer than any jump; an arch stands over it, and a swing on the whip thrown at the arch carries across. Good, if the arch reads as the thing to throw at. It costs two pips.",
+                            where = "Segment " + seg.name + ": '" + P.name + "' to '" + Q.name + "', " + e.gap.ToString("0.0", Ci) + " m " + UpDown(e.dy) + ", the arch " + e.swingAhead.ToString("0", Ci) + " m on and " + e.swingUp.ToString("0", Ci) + " m up, at " + Fmt(e.a) + ".",
+                            why = "Thrown at " + e.speed.ToString("0", Ci) + " m/s and let go at the best moment the swing reaches " + LevelMetricsMath.SwingOver(reach.v, e.speed, e.swingAhead, e.swingUp, e.dy).distance.ToString("0.0", Ci) + " m (the rope reels in while the key is held, which is where the reach comes from)." });
                     if ((e.move == Move.Jump || e.move == Move.DoubleJump) && e.trivial && e.gap >= 1.5f)
                         res.findings.Add(new Finding { severity = 10, title = "A GAP A WALK CLEARS", segment = seg.name, at = e.a,
                             experience = "A jump with nothing in it: at run speed it clears with half the arc to spare. No tension, no reason to carry speed.",
@@ -1380,7 +1659,7 @@ public static class LevelValidator
                                 why = "Running never gains or keeps speed above 8 m/s on the ground, and a slide fights gravity's share along the slope (" + LevelMetricsMath.SlideSlopeGain(reach.v, Q.slope).ToString("0.0", Ci) + " m/s² against it)." });
                         }
                     }
-                    bool vaultUp = e.move == Move.Walk && e.dy > StepMin && Q.name.StartsWith("Vault");   // STEP 3: the slab of a MARKED ledge over the last of the floor at its foot is the ledge itself
+                    bool vaultUp = e.move == Move.Walk && e.dy > StepMin && Q.vault;   // STEP 3: the slab of a MARKED ledge over the last of the floor at its foot is the ledge itself
                     float clearP = ClearanceAlong(g, P, entry, e.a, out Vector3 lowAt, vaultUp ? Q.col : prevE != null ? g.plats[prevE.from].col : null), clearQ = Clearance(g, Q, e.b, P.col);   // the belly of the floor just stepped off is not a ceiling over this one
                     float clear = Mathf.Min(clearP, clearQ);
                     Vector3 clearAt = clearP <= clearQ ? lowAt : e.b;
@@ -1435,9 +1714,15 @@ public static class LevelValidator
             res.clearSeconds = res.routeLength / reach.v.baseRunSpeed + res.jumps * 0.7f + res.drops * 0.8f;
             res.summaryLine = kind + ": score " + res.score + ", " + res.findings.Count + " findings, line " + res.routeLength.ToString("0", Ci) + " m, ~" + res.clearSeconds.ToString("0", Ci) + " s at run speed, " + res.jumps + " gaps (longest " + res.longestGap.ToString("0.0", Ci) + " m), " + res.drops + " drops, wall-runnable " + res.wallRunMetres.ToString("0", Ci) + " m";
             if (res.hidden.Count > 0) { var sv = new List<string>(); foreach (var h in res.hidden) sv.Add(h.SavesRun.ToString("0.0", Ci) + " s"); res.summaryLine += ", " + res.hidden.Count + " hidden route(s) saving " + string.Join(" / ", sv); }
+            foreach (var fk in res.forks) res.summaryLine += ", " + fk.segment.Substring(0, Mathf.Max(0, fk.segment.IndexOf(" → "))) + " high/middle/low " + ForkSeconds(fk, 3) + " / " + ForkSeconds(fk, 2) + " / " + ForkSeconds(fk, 1) + " s" + (fk.ordered ? "" : " (NOT IN ORDER)");
             res.summaryLine += ", at speed: " + res.trivial + " trivial gap(s), " + res.unpunished + " unpunished, " + res.straights + " free straight(s), " + res.liftSkips + " wall(s) that lift onto something";
             WriteReport(res, g);
             LevelOverhead.WriteImages(kind.ToString(), res.bounds, g, res.segments, res.findings, built.roots);
+            foreach (var fk in res.forks)   // the view from each fork's mouth: the three lines as the player meets them
+            {
+                string tag = fk.segment.Contains(" → ") ? fk.segment.Substring(0, fk.segment.IndexOf(" → ")) : fk.segment;
+                try { LevelOverhead.ShootFromSpawn(kind + "-" + tag.Replace(' ', '-'), fk.mouth, fk.forward); } catch (Exception e) { Debug.LogWarning("LevelValidator: the fork shot failed (" + e.Message + ")"); }
+            }
             foreach (var h in res.hidden)   // the view from each hidden line's reset pad, as the player sees it
             {
                 string tag = h.segment.Contains(" → ") ? h.segment.Substring(0, h.segment.IndexOf(" → ")) : h.segment;
@@ -1585,6 +1870,28 @@ public static class LevelValidator
             foreach (var h in r.hidden) sb.AppendLine("- " + HiddenLine(h));
             sb.AppendLine();
         }
+        if (r.forks.Count > 0)
+        {
+            sb.AppendLine("## Forks");
+            sb.AppendLine();
+            sb.AppendLine("Each line of a fork walked on its own (the other lines' floors left out), reset pad to reset pad, and timed EXECUTED WELL at the speed the beat is entered with: the speed kept over open floor (hops), bled by a slide where a roof or an arch leaves no room to hop (" + new LevelMetricsMath.Values().slideFriction.ToString("0.0", Ci) + " m/s a metre, never under a run), slopes slid, rails ridden (their least speed and their gain), a wall run's jump paid once, the whip let go at the quickest release that lands. 'As a plain run' is the same way at run speed with nothing kept. A hard line must hold a move a run cannot make; a miss over any gap of a line must come down on a floor the level can still be finished from. Misses, turns and the choice at the mouth are not timed.");
+            sb.AppendLine();
+            foreach (var fk in r.forks)
+            {
+                sb.AppendLine("**" + fk.segment + "** (entered at " + fk.speed.ToString("0", Ci) + " m/s)");
+                foreach (var rt in fk.routes)
+                {
+                    if (rt.broken) { sb.AppendLine("- " + ForkWord[rt.line] + ": BROKEN: " + rt.why); continue; }
+                    sb.AppendLine("- " + ForkWord[rt.line] + ": " + rt.seconds.ToString("0.0", Ci) + " s executed, arriving at " + rt.arrive.ToString("0", Ci) + " m/s (" + rt.asRun.ToString("0.0", Ci) + " s as a plain run) · " + rt.moves + " · " + (rt.needsAMove ? "a run cannot do it: " + rt.hardest : rt.line == 1 ? "anyone runs it" : "A RUN GETS THROUGH") + " · a miss: " + rt.falls + (rt.window != null ? " · " + rt.window : ""));
+                }
+                sb.AppendLine("- harder is faster: " + ForkOrder(fk));
+                sb.AppendLine("- drops between the lines: " + (fk.drops.Count > 0 ? string.Join("; ", fk.drops) : "NONE"));
+                var ups = new List<string>(fk.waysUp);
+                foreach (var (at, text) in r.forkLifts) if (fk.bounds.Contains(new Vector3(at.x, fk.bounds.center.y, at.z)) && !ups.Contains(text)) ups.Add(text);
+                sb.AppendLine("- ways up: " + (ups.Count > 0 ? string.Join("; ", ups) : "NONE"));
+                sb.AppendLine();
+            }
+        }
         if (r.speed.Count > 0)
         {
             sb.AppendLine("## Speed control: the snowball");
@@ -1642,6 +1949,7 @@ public static class LevelValidator
                     Move.Jump => "jump " + e.gap.ToString("0.0", Ci) + " m " + UpDown(e.dy) + " (" + e.speed.ToString("0", Ci) + " m/s)",
                     Move.DoubleJump => "DOUBLE JUMP " + e.gap.ToString("0.0", Ci) + " m " + UpDown(e.dy) + " (" + e.speed.ToString("0", Ci) + " m/s + a pip)",
                     Move.WallRun => "wall run + jump " + e.gap.ToString("0.0", Ci) + " m (" + e.speed.ToString("0", Ci) + " m/s)",
+                    Move.Swing => "WHIP SWING " + e.gap.ToString("0.0", Ci) + " m " + UpDown(e.dy) + " (the arch " + e.swingAhead.ToString("0", Ci) + " m on, " + e.swingUp.ToString("0", Ci) + " m up; two pips)",
                     _ => e.move.ToString(),
                 };
                 line.Append(line.Length > 0 ? " → " : "").Append(m);
