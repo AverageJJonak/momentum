@@ -174,6 +174,17 @@ public class BeatGymTools : MonoBehaviour
     Texture2D white;
 
     void OnDisable() { if (MenuOpen) Close(); }
+    void OnDestroy() { if (hooked) GameBootstrap.Respawned -= Refill; }
+
+    bool hooked;
+    /// A reset in the gym (R, a fall, a station picked from the menu) fills the pips: the whip costs two of three, and a
+    /// station that asks for it has to be there to try again at once. The gym only: a level's respawn leaves the pips alone
+    void Refill()
+    {
+        var m = PlayerMotor.Current;
+        var pips = m != null ? m.GetComponent<StaminaSystem>() : null;
+        if (pips != null && pips.Pips < pips.MaxPips) pips.Refund(pips.MaxPips - pips.Pips);
+    }
 
     void Layout()
     {
@@ -206,6 +217,7 @@ public class BeatGymTools : MonoBehaviour
         var flow = CourseFlow.Instance;
         if (kb == null || motor == null || flow == null || GymStations.All.Count == 0) return;
         if (cell == null) Layout();
+        if (!hooked) { GameBootstrap.Respawned += Refill; hooked = true; }
         if (float.IsNaN(baseKill)) baseKill = GameBootstrap.KillFloorY;
         if (PauseMenu.IsPaused || LevelResults.Active) { if (MenuOpen) { MenuOpen = false; } return; }   // the pause owns the clock now: leave it stopped
 
