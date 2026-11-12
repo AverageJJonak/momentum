@@ -1,7 +1,7 @@
 # The Beat Gym's test tools: a check
 
 - stations: 45 (0 without a pad of their own name, 0 without pieces, 0 named twice)
-- pieces that belong to a station: 2422
+- pieces that belong to a station: 2592
 - has the tools' component: yes
 - the row moved 1.6 km and turned 33°: 0 station(s) read as changed (must be 0); the largest difference in any number 1 cm (the allowance is 3)
 
@@ -31,15 +31,15 @@
 | GRIND I | 12 | 29 |
 | GRIND II | 19 | 35 |
 | GRIND III | 23 | 39 |
-| SWING I | 9 | 26 |
-| SWING II | 11 | 28 |
-| SWING III | 17 | 29 |
+| SWING I | 12 | 29 |
+| SWING II | 14 | 33 |
+| SWING III | 14 | 36 |
 | CONTROL I | 12 | 26 |
 | CONTROL II | 19 | 27 |
 | CONTROL III | 24 | 28 |
-| FORK I | 22 | 30 |
-| FORK II | 28 | 31 |
-| FORK III | 32 | 32 |
+| FORK I | 66 | 33 |
+| FORK II | 84 | 33 |
+| FORK III | 95 | 34 |
 | SKIP I | 19 | 29 |
 | SKIP II | 21 | 30 |
 | SKIP III | 21 | 31 |
