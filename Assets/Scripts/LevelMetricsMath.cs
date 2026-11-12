@@ -31,6 +31,8 @@ public static class LevelMetricsMath
         public float dashSpeed = 18f, dashDuration = 0.15f, doubleJumpImpulse = 8.5f, doubleJumpMinGroundClearance = 0.5f;
         public float slamDownSpeed = 30f, slamStorageConversion = 0.6f;
         public float grindMinSpeed = 8f, grindAccel = 2f, grindJumpMultiplier = 1.05f;   // STEP 3: the rail grind (MovementConfigArchitecture)
+        public float grappleSwingMinLength = 6f, grappleSwingMaxLength = 34f, grappleSwingReelSpeed = 9f, grappleSwingInitialTug = 8f, grappleMaxRange = 60f, eyeHeight = 1.62f;   // the whip's swing (GrappleAbility, PlayerMotor.ConstrainSwing)
+        public int grappleCost = 2;
         public float perfectBhopSpeedMultiplier = 1.18f, perfectBhopMinMultiplier = 1.08f, perfectBhopFadeStartSpeed = 18f, perfectBhopFadeEndSpeed = 30f, perfectBhopWindow = 0.05f;
         public float capsuleHeight = 1.8f, capsuleRadius = 0.4f, maxSlopeAngle = 45f;
         public float cameraRollFall = 14f;
@@ -208,6 +210,90 @@ public static class LevelMetricsMath
     public static float SafeWallHeight(Values v) => (float)Math.Ceiling((WallLift(v, v.jumpImpulse, 1000f).afterKick + Height(v, v.jumpImpulse) + 0.5f) * 2f) / 2f;
     public static float SafeGateHeight(Values v) => SafeWallHeight(v) + 3.5f;
 
+    // ---------------------------------------------------------------- the whip's swing
+
+    /// Where a swing on the whip has the body when the key is let go: metres along the line and above the feet's height
+    /// at the throw, the speed along the line and upward, the seconds held, the lowest the feet went, the rope left
+    public struct Swing { public float distance, rise, h, vy, seconds, low, rope; }
+
+    /// THE WHIP'S SWING (2026-11-11; the user: the whip is the swing, "very spiderman like"). The whip thrown while
+    /// moving at `speed` along the line (and `vy0` upward: 0 off a floor's edge) at an anchor `ahead` metres on and `up`
+    /// metres over the feet, the key held `hold` seconds. The game's own rules, tick by tick (GrappleAbility.TryAttach
+    /// and Swing, PlayerMotor.ConstrainSwing): the rope is the eye's distance to the anchor (held between the least and
+    /// the most), the tug toward the anchor is added at once, the rope reels in while the key is held, gravity runs, and
+    /// a body further from the anchor than the rope is put back on it with the outward part of its velocity taken away.
+    /// The air strafe is not counted
+    public static Swing WhipSwing(Values v, float speed, float vy0, float ahead, float up, float hold)
+    {
+        float dt = v.fixedDeltaTime, half = v.capsuleHeight * 0.5f;
+        float ex = ahead, ey = up - v.eyeHeight, eye = (float)Math.Sqrt(ex * ex + ey * ey);
+        var s = new Swing();
+        if (eye < 0.01f) return s;
+        float rope = Math.Max(v.grappleSwingMinLength, Math.Min(v.grappleSwingMaxLength, eye));
+        float vx = speed + ex / eye * v.grappleSwingInitialTug, vy = vy0 + ey / eye * v.grappleSwingInitialTug;
+        float x = 0f, y = 0f, t = 0f, low = 0f;
+        while (t < hold - 1e-4f)
+        {
+            rope = Math.Max(v.grappleSwingMinLength, rope - v.grappleSwingReelSpeed * dt);
+            vy -= v.gravity * dt;
+            x += vx * dt; y += vy * dt; t += dt;
+            float bx = ahead - x, by = up - (y + half), d = (float)Math.Sqrt(bx * bx + by * by);
+            if (d > rope && d > 0.01f)
+            {
+                float nx = bx / d, ny = by / d;
+                x += nx * (d - rope); y += ny * (d - rope);
+                float outward = -(vx * nx + vy * ny);
+                if (outward > 0f) { vx += nx * outward; vy += ny * outward; }
+            }
+            if (y < low) low = y;
+        }
+        s.distance = x; s.rise = y; s.h = vx; s.vy = vy; s.seconds = t; s.low = low; s.rope = rope;
+        return s;
+    }
+
+    /// A swing and the flight after it, to a landing `dy` over the launch: how far along the line the feet come down,
+    /// the seconds from the throw, the speed along the line on the way down, the hold that did it; `ok` false when
+    /// no release in the span lands at that height
+    public struct SwingLanding { public float distance, seconds, h, hold, low; public bool ok; }
+
+    /// Every release from a tenth of a second to four seconds tried (a tick apart), and the one kept that lands
+    /// between `need` and `far` metres along the line in the least time: the swing let go WELL. With `far` at or under
+    /// `need` the furthest landing of all is kept (the swing's reach)
+    public static SwingLanding SwingOver(Values v, float speed, float ahead, float up, float dy, float need = 0f, float far = 0f)
+    {
+        var best = new SwingLanding();
+        bool reach = far <= need;
+        for (float hold = 0.1f; hold <= 4f; hold += v.fixedDeltaTime)
+        {
+            var s = WhipSwing(v, speed, 0f, ahead, up, hold);
+            if (s.h < 1f) break;                                  // the swing has turned back: nothing later is a way on
+            var arc = Jump(v, s.h, s.vy, dy - s.rise, false);
+            if (s.rise < dy && arc.apex + 0.02f < dy - s.rise) continue;   // let go under the landing with too little rise to reach it
+            float total = s.distance + arc.distance, secs = s.seconds + arc.time;
+            if (reach ? (!best.ok || total > best.distance) : (total >= need && total <= far && (!best.ok || secs < best.seconds)))
+                best = new SwingLanding { distance = total, seconds = secs, h = s.h, hold = s.seconds, low = s.low, ok = true };
+        }
+        return best;
+    }
+
+    /// The span of holds, in seconds, whose release lands between `need` and `far`: the first that does and the last
+    /// of the unbroken run after it. (0, 0) when none does. How forgiving the swing is
+    public static (float from, float to) SwingWindow(Values v, float speed, float ahead, float up, float dy, float need, float far)
+    {
+        float from = 0f, to = 0f; bool open = false;
+        for (float hold = 0.1f; hold <= 4f; hold += v.fixedDeltaTime)
+        {
+            var s = WhipSwing(v, speed, 0f, ahead, up, hold);
+            if (s.h < 1f) break;
+            var arc = Jump(v, s.h, s.vy, dy - s.rise, false);
+            bool lands = !(s.rise < dy && arc.apex + 0.02f < dy - s.rise) && s.distance + arc.distance >= need && s.distance + arc.distance <= far;
+            if (lands && !open) { from = hold; open = true; }
+            if (lands) to = hold;
+            else if (open) break;
+        }
+        return (from, to);
+    }
+
     // ---------------------------------------------------------------- the ground
 
     /// A flat slide from `speed`: the bleed is exponential at slideFriction, the slide ends at slideEndSpeed.
@@ -328,6 +414,18 @@ public static class LevelMetricsMath
         }
         var lj = WallLift(v, v.jumpImpulse, 1000f);
         sb.AppendLine("Along the wall, the best jump off a run entered jumping comes " + F(lj.tRise, "0.00") + " s in: " + F(lj.tRise * 8f) + " m at 8 m/s, " + F(lj.tRise * 12f) + " m at 12, " + F(lj.tRise * 16f) + " m at 16. A wall's top is reached " + F(WallLift(v, v.jumpImpulse, 4f).run, "0.00") + " s in when it is 4 m up. A cornice 3 m over the floor holds the feet to " + F(3f - v.capsuleHeight) + " m.");
+        sb.AppendLine();
+
+        // 3c. the whip's swing
+        sb.AppendLine("3c. THE WHIP'S SWING (2026-11-11): thrown off a floor's edge at an arch `ahead` metres on and `up` metres over the feet, the key held, let go at the best moment. The rope is the eye's distance to the arch (" + F(v.grappleSwingMinLength, "0") + " to " + F(v.grappleSwingMaxLength, "0") + " m), the tug on the throw is " + F(v.grappleSwingInitialTug, "0") + " m/s, and the rope reels in " + F(v.grappleSwingReelSpeed, "0") + " m/s while the key is held: the reel is where the reach comes from, which is why the entry speed changes it so little. 'reach' is the furthest landing at the launch's own height; 'hold' the seconds held for it; 'window' how long the release may wander and still land between three quarters of the reach and twenty metres past that. Costs " + v.grappleCost + " of " + v.staminaMaxPips + " pips. The whip takes any surface inside " + F(v.grappleMaxRange, "0") + " m.");
+        sb.AppendLine("| arch ahead / up | reach at 8 m/s | at 12 m/s | at 16 m/s | hold at 12 | window at 12 | second jump at 12, for scale |");
+        sb.AppendLine("|---|---|---|---|---|---|---|");
+        foreach (var (ahead, up) in new[] { (8f, 8f), (10f, 9f), (12f, 10f), (14f, 12f), (16f, 12f) })
+        {
+            var r12 = SwingOver(v, 12f, ahead, up, 0f);
+            var win = SwingWindow(v, 12f, ahead, up, 0f, 0.75f * r12.distance, 0.75f * r12.distance + 20f);
+            sb.AppendLine("| " + F(ahead, "0") + " / " + F(up, "0") + " m | " + F(SwingOver(v, 8f, ahead, up, 0f).distance) + " m | " + F(r12.distance) + " m | " + F(SwingOver(v, 16f, ahead, up, 0f).distance) + " m | " + F(r12.hold, "0.00") + " s | " + F(win.to - win.from, "0.00") + " s | " + F(DoubleJump(v, 12f, 0f, true, false).distance) + " m |");
+        }
         sb.AppendLine();
 
         // 4. slides and slopes

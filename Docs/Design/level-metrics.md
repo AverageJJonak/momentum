@@ -53,6 +53,15 @@ A full run drops 7.3 m whatever the speed; the first 0.68 s stay level. The wall
 | falling (-3) | rise 0.0 in 0.00 s → jump 1.1, pip 2.5, kick 3.2 | rise 0.0 in 0.00 s → jump 1.1, pip 2.5, kick 3.2 | rise 0.0 in 0.00 s → jump 1.1, pip 2.5, kick 3.2 | rise 0.0 in 0.00 s → jump 1.1, pip 2.5, kick 3.2 | rise 0.0 in 0.00 s → jump 1.1, pip 2.5, kick 3.2 | rise 0.0 in 0.00 s → jump 1.1, pip 2.5, kick 3.2 | rise 0.0 → jump 1.1, pip 1.2, kick 1.2 |
 Along the wall, the best jump off a run entered jumping comes 0.56 s in: 4.5 m at 8 m/s, 6.7 m at 12, 9.0 m at 16. A wall's top is reached 1.62 s in when it is 4 m up. A cornice 3 m over the floor holds the feet to 1.2 m.
 
+3c. THE WHIP'S SWING (2026-11-11): thrown off a floor's edge at an arch `ahead` metres on and `up` metres over the feet, the key held, let go at the best moment. The rope is the eye's distance to the arch (6 to 34 m), the tug on the throw is 8 m/s, and the rope reels in 9 m/s while the key is held: the reel is where the reach comes from, which is why the entry speed changes it so little. 'reach' is the furthest landing at the launch's own height; 'hold' the seconds held for it; 'window' how long the release may wander and still land between three quarters of the reach and twenty metres past that. Costs 2 of 3 pips. The whip takes any surface inside 60 m.
+| arch ahead / up | reach at 8 m/s | at 12 m/s | at 16 m/s | hold at 12 | window at 12 | second jump at 12, for scale |
+|---|---|---|---|---|---|---|
+| 8 / 8 m | 20.0 m | 24.2 m | 29.1 m | 0.66 s | 0.38 s | 16.8 m |
+| 10 / 9 m | 24.0 m | 28.0 m | 32.0 m | 0.76 s | 0.36 s | 16.8 m |
+| 12 / 10 m | 28.1 m | 31.6 m | 35.3 m | 0.88 s | 0.38 s | 16.8 m |
+| 14 / 12 m | 32.0 m | 35.4 m | 39.4 m | 1.04 s | 0.42 s | 16.8 m |
+| 16 / 12 m | 36.0 m | 39.0 m | 41.9 m | 1.14 s | 0.44 s | 16.8 m |
+
 4. SLIDES. Flat: the bleed at 0.60/s until 1.0 m/s. Slopes: speed gained per second sliding straight down; the run up a slope before a slide stops, from 12 m/s.
 | entry m/s | flat slide distance | flat slide seconds |
 |---|---|---|
